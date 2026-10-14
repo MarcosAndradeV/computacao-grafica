@@ -1,4 +1,4 @@
-all: main_cpp main_chs
+all: main_cpp main_chs main
 
 CXX_LIBS = -lGL -lGLU -lglut
 CXX = g++
@@ -10,6 +10,9 @@ main_cpp: $(CXX_SRC)
 
 main_chs: $(CHS_SRC)
 	chs build $(CHS_SRC) -o main_chs
+
+main:
+	cargo build
 
 clean:
 	rm main_chs main_cpp
