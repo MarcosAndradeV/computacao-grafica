@@ -1,0 +1,11 @@
+thrust_speed = {
+    top = 90%,
+    left = 2%,
+    font_size = 18,
+    color = "LIME",
+}
+
+hud = {
+    left = 50%
+    top = 50%
+}
