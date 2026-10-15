@@ -1,4 +1,5 @@
 use crate::flight::physics::SpaceshipPhysics;
+use crate::scenes::CameraMode;
 use muxapp::muxui::*;
 use std::f32::consts::PI;
 
@@ -6,7 +7,7 @@ pub struct FlightHUD;
 
 impl FlightHUD {
     /// Renders the complete flight instrument suite on top of the 3D scene.
-    pub fn draw(ship: &SpaceshipPhysics, camera: &Camera3D, style: &Style, is_cockpit: bool) {
+    pub fn draw(ship: &SpaceshipPhysics, camera: &Camera3D, style: &Style, camera_mode: CameraMode) {
         let sw = get_virtual_screen_width();
         let sh = get_virtual_screen_height();
         let cx = sw * 0.5;
@@ -33,6 +34,12 @@ impl FlightHUD {
         }
         TextElement::new(format!("HDG: {:03.0}°", heading)).place(style, "compass_heading");
 
+        // Free Camera active guidance hint
+        if camera_mode == CameraMode::Free {
+            TextElement::new("FREE CAM: Mouse Look | WASD: Move | Space/Ctrl: Elevation | Shift: Turbo | F/C: Exit")
+                .place(style, "free_cam_hint");
+        }
+
         // Airspeed Tape Elements using MUX 0.3.0 dynamic with_class
         TextElement::new("SPD").place(style, "tape_speed_title");
         TextElement::new(format!("{:.0}", ship.airspeed))
@@ -49,7 +56,11 @@ impl FlightHUD {
         TextElement::new(format!("VS: {:+.1}", ship.vertical_speed)).place(style, "tape_alt_vs");
 
         // Scene and Camera info banner (Top Left)
-        let view_str = if is_cockpit { "COCKPIT [C]" } else { "CHASE CAM [C]" };
+        let view_str = match camera_mode {
+            CameraMode::Cockpit => "COCKPIT [C]",
+            CameraMode::Chase => "CHASE CAM [C]",
+            CameraMode::Free => "FREE CAM [C/F]",
+        };
         TextElement::new(format!(
             "SCENE: PLANET FLIGHT | VIEW: {} | [TAB] SWITCH | [P] PAUSE",
             view_str

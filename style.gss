@@ -2,7 +2,7 @@ flight_physics = {
     max_thrust = 40.0,
     stall_speed = 28.0,
     wing_area = 18.0,
-    boost_multiplier = 1.65,
+    boost_multiplier = 1.65
 }
 
 solar_system = {
@@ -23,6 +23,14 @@ compass_heading = {
     align = "center",
     font_size = 16.0,
     color = "lime",
+}
+
+free_cam_hint = {
+    top = 54,
+    left = 50%,
+    align = "center",
+    font_size = 13.0,
+    color = "yellow",
 }
 
 // --- Speed Tape (Left Screen Edge) ---

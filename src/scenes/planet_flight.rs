@@ -1,18 +1,29 @@
+use crate::AppState;
 use crate::flight::{
     hud::FlightHUD,
     physics::{FlightControlInput, SpaceshipPhysics},
     terrain::PlanetaryTerrain,
 };
-use crate::AppState;
-use muxapp::muxui::{d3::*, rlgl::*, Matrix, *};
+use muxapp::muxui::{Matrix, d3::*, rlgl::*, *};
 use muxapp::{Input, Scene, SceneAction};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CameraMode {
+    #[default]
+    Chase,
+    Cockpit,
+    Free,
+}
 
 pub struct PlanetFlightScene {
     pub ship: SpaceshipPhysics,
     pub terrain: PlanetaryTerrain,
     pub camera: Camera3D,
-    pub is_cockpit_view: bool,
+    pub camera_mode: CameraMode,
     pub smoothed_cam_pos: Vector3,
+    pub free_cam_pos: Vector3,
+    pub free_cam_yaw: f32,
+    pub free_cam_pitch: f32,
 }
 
 impl Default for PlanetFlightScene {
@@ -29,10 +40,13 @@ impl Default for PlanetFlightScene {
 
         Self {
             ship,
-            terrain: PlanetaryTerrain::default(),
             camera,
-            is_cockpit_view: false,
+            camera_mode: CameraMode::Chase,
+            terrain: PlanetaryTerrain::default(),
             smoothed_cam_pos: init_cam,
+            free_cam_pos: init_cam,
+            free_cam_yaw: 0.0,
+            free_cam_pitch: 0.0,
         }
     }
 }
@@ -55,6 +69,7 @@ impl Scene<AppState> for PlanetFlightScene {
         _style: &Style,
         dt: f32,
     ) -> SceneAction {
+        draw_fps(10, 60);
         // Modal Scene Actions
         if input.is_action_pressed("pause") {
             return SceneAction::Push("pause".to_string());
@@ -63,59 +78,137 @@ impl Scene<AppState> for PlanetFlightScene {
             return SceneAction::Switch("solar_orbit".to_string());
         }
 
-        // Camera toggle
-        if input.is_action_pressed("toggle_camera") {
-            self.is_cockpit_view = !self.is_cockpit_view;
+        // Camera toggles: C cycles Chase -> Cockpit -> Free; F toggles Free Camera
+        if input.is_action_pressed("free_camera") {
+            if self.camera_mode == CameraMode::Free {
+                self.camera_mode = CameraMode::Chase;
+            } else {
+                self.enter_free_cam();
+            }
+        } else if input.is_action_pressed("toggle_camera") {
+            self.camera_mode = match self.camera_mode {
+                CameraMode::Chase => CameraMode::Cockpit,
+                CameraMode::Cockpit => {
+                    self.enter_free_cam();
+                    CameraMode::Free
+                }
+                CameraMode::Free => CameraMode::Chase,
+            };
         }
 
-        // Continuous analog inputs from composite axes (combining keyboard and mouse delta)
-        let pitch_input = input.get_axis("pitch");
-        let roll_input = input.get_axis("roll");
-        let yaw_input = input.get_axis("yaw");
+        let flight_input = if self.camera_mode == CameraMode::Free {
+            // Ship glides on current momentum while pilot navigates free camera
+            FlightControlInput::default()
+        } else {
+            // Continuous analog inputs from composite axes (combining keyboard and mouse delta)
+            let pitch_input = input.get_axis("pitch");
+            let roll_input = input.get_axis("roll");
+            let yaw_input = input.get_axis("yaw");
 
-        // Throttle adjustments from axis
-        let throttle_delta = input.get_axis("throttle") * 0.45;
+            // Throttle adjustments from axis
+            let throttle_delta = input.get_axis("throttle") * 0.45;
 
-        // VTOL thrusters from axis
-        let vtol_axis = input.get_axis("vtol");
-        let vtol_up = vtol_axis.max(0.0);
-        let vtol_down = (-vtol_axis).max(0.0);
+            // VTOL thrusters from axis
+            let vtol_axis = input.get_axis("vtol");
+            let vtol_up = vtol_axis.max(0.0);
+            let vtol_down = (-vtol_axis).max(0.0);
 
-        let flight_input = FlightControlInput {
-            pitch: pitch_input.clamp(-1.0, 1.0),
-            roll: roll_input.clamp(-1.0, 1.0),
-            yaw: yaw_input.clamp(-1.0, 1.0),
-            throttle_delta,
-            afterburner: input.is_action_down("afterburner"),
-            airbrake: input.is_action_pressed("airbrake"),
-            vtol_up,
-            vtol_down,
-            gear_toggle: input.is_action_pressed("landing_gear"),
-            hover_mode_toggle: input.is_action_pressed("hover_mode"),
+            FlightControlInput {
+                pitch: pitch_input.clamp(-1.0, 1.0),
+                roll: roll_input.clamp(-1.0, 1.0),
+                yaw: yaw_input.clamp(-1.0, 1.0),
+                throttle_delta,
+                afterburner: input.is_action_down("afterburner"),
+                airbrake: input.is_action_pressed("airbrake"),
+                vtol_up,
+                vtol_down,
+                gear_toggle: input.is_action_pressed("landing_gear"),
+                hover_mode_toggle: input.is_action_pressed("hover_mode"),
+            }
         };
 
         // Query planetary terrain surface elevation under the spaceship (water surface or ground)
-        let surface_elevation = self.terrain.get_surface_height(self.ship.position.x, self.ship.position.z);
+        let surface_elevation = self
+            .terrain
+            .get_surface_height(self.ship.position.x, self.ship.position.z);
 
         // Step aerodynamic flight simulation
-        self.ship.step(&flight_input, surface_elevation, dt);
+        if self.camera_mode != CameraMode::Free {
+            self.ship.step(&flight_input, surface_elevation, dt);
+        }
 
-        // Update Camera Position & Target using native Vector3 math
-        if self.is_cockpit_view {
-            // First-Person Cockpit View
-            let eye_pos = self.ship.position + self.ship.up * 0.4 + self.ship.forward * 0.3;
-            self.camera.position = eye_pos;
-            self.camera.target = eye_pos + self.ship.forward * 50.0;
-            self.camera.up = self.ship.up;
-        } else {
-            // Third-Person Dynamic Chase Camera with native .lerp()
-            let desired_cam_pos = self.ship.position - self.ship.forward * 16.0 + self.ship.up * 4.5;
-            let blend = (dt * 9.0).clamp(0.0, 1.0);
-            self.smoothed_cam_pos = self.smoothed_cam_pos.lerp(desired_cam_pos, blend);
+        // Update Camera Position & Target based on active CameraMode
+        match self.camera_mode {
+            CameraMode::Free => {
+                // Mouse look rotation
+                let mouse_delta = input.mouse_delta();
+                self.free_cam_yaw -= mouse_delta.x * 0.003;
+                self.free_cam_pitch =
+                    (self.free_cam_pitch - mouse_delta.y * 0.003).clamp(-1.55, 1.55);
 
-            self.camera.position = self.smoothed_cam_pos;
-            self.camera.target = self.ship.position + self.ship.forward * 15.0;
-            self.camera.up = self.ship.up;
+                let cp = self.free_cam_pitch.cos();
+                let sp = self.free_cam_pitch.sin();
+                let cy = self.free_cam_yaw.cos();
+                let sy = self.free_cam_yaw.sin();
+
+                let cam_forward = Vector3::new(cp * sy, sp, cp * cy).normalize();
+                let world_up = Vector3::new(0.0, 1.0, 0.0);
+                let cam_right = cam_forward.cross(world_up).normalize();
+                let cam_up = cam_right.cross(cam_forward).normalize();
+
+                // Directional 6-DOF translation
+                let cam_speed = if input.is_action_down("afterburner") {
+                    160.0
+                } else {
+                    50.0
+                };
+                let mut move_dir = Vector3::zero();
+
+                if is_key_down(KEY_W) || is_key_down(KEY_UP) {
+                    move_dir = move_dir + cam_forward;
+                }
+                if is_key_down(KEY_S) || is_key_down(KEY_DOWN) {
+                    move_dir = move_dir - cam_forward;
+                }
+                if is_key_down(KEY_D) || is_key_down(KEY_RIGHT) {
+                    move_dir = move_dir + cam_right;
+                }
+                if is_key_down(KEY_A) || is_key_down(KEY_LEFT) {
+                    move_dir = move_dir - cam_right;
+                }
+                if is_key_down(KEY_SPACE) || is_key_down(KEY_E) {
+                    move_dir = move_dir + world_up;
+                }
+                if is_key_down(KEY_LEFT_CONTROL) || is_key_down(KEY_Q) {
+                    move_dir = move_dir - world_up;
+                }
+
+                if move_dir.length_sq() > 0.001 {
+                    self.free_cam_pos = self.free_cam_pos + move_dir.normalize() * (cam_speed * dt);
+                }
+
+                self.camera.position = self.free_cam_pos;
+                self.camera.target = self.free_cam_pos + cam_forward * 10.0;
+                self.camera.up = cam_up;
+            }
+            CameraMode::Cockpit => {
+                // First-Person Cockpit View
+                let eye_pos = self.ship.position + self.ship.up * 0.4 + self.ship.forward * 0.3;
+                self.camera.position = eye_pos;
+                self.camera.target = eye_pos + self.ship.forward * 50.0;
+                self.camera.up = self.ship.up;
+            }
+            CameraMode::Chase => {
+                // Third-Person Dynamic Chase Camera with native .lerp()
+                let desired_cam_pos =
+                    self.ship.position - self.ship.forward * 16.0 + self.ship.up * 4.5;
+                let blend = (dt * 9.0).clamp(0.0, 1.0);
+                self.smoothed_cam_pos = self.smoothed_cam_pos.lerp(desired_cam_pos, blend);
+
+                self.camera.position = self.smoothed_cam_pos;
+                self.camera.target = self.ship.position + self.ship.forward * 15.0;
+                self.camera.up = self.ship.up;
+            }
         }
 
         SceneAction::None
@@ -124,17 +217,28 @@ impl Scene<AppState> for PlanetFlightScene {
     fn draw_3d(&mut self, _state: &AppState) {
         draw_3d(self.camera, |d3| {
             // 1. Draw Planetary Terrain, Runway, Ocean, and Sky Horizon (batch-safe)
-            self.terrain.draw(d3, self.ship.position.x, self.ship.position.z);
+            self.terrain
+                .draw(d3, self.ship.position.x, self.ship.position.z);
 
-            // 2. Draw 3D Spaceship Model in Chase View with safe matrix scoping
-            if !self.is_cockpit_view {
+            // 2. Draw 3D Spaceship Model in Chase & Free View with safe matrix scoping
+            if self.camera_mode != CameraMode::Cockpit {
                 self.draw_spaceship_model(d3);
             }
         });
     }
 
     fn draw_2d(&mut self, _state: &AppState, style: &Style) {
-        FlightHUD::draw(&self.ship, &self.camera, style, self.is_cockpit_view);
+        FlightHUD::draw(&self.ship, &self.camera, style, self.camera_mode);
+    }
+}
+
+impl PlanetFlightScene {
+    fn enter_free_cam(&mut self) {
+        self.camera_mode = CameraMode::Free;
+        self.free_cam_pos = self.camera.position;
+        let forward = (self.camera.target - self.camera.position).normalize();
+        self.free_cam_yaw = forward.x.atan2(forward.z);
+        self.free_cam_pitch = forward.y.asin().clamp(-1.5, 1.5);
     }
 }
 
@@ -268,5 +372,50 @@ impl PlanetFlightScene {
                 rlEnd();
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_camera_mode_default_is_chase() {
+        assert_eq!(CameraMode::default(), CameraMode::Chase);
+    }
+
+    #[test]
+    fn test_camera_mode_cycle() {
+        let mut mode = CameraMode::Chase;
+        mode = match mode {
+            CameraMode::Chase => CameraMode::Cockpit,
+            CameraMode::Cockpit => CameraMode::Free,
+            CameraMode::Free => CameraMode::Chase,
+        };
+        assert_eq!(mode, CameraMode::Cockpit);
+
+        mode = match mode {
+            CameraMode::Chase => CameraMode::Cockpit,
+            CameraMode::Cockpit => CameraMode::Free,
+            CameraMode::Free => CameraMode::Chase,
+        };
+        assert_eq!(mode, CameraMode::Free);
+
+        mode = match mode {
+            CameraMode::Chase => CameraMode::Cockpit,
+            CameraMode::Cockpit => CameraMode::Free,
+            CameraMode::Free => CameraMode::Chase,
+        };
+        assert_eq!(mode, CameraMode::Chase);
+    }
+
+    #[test]
+    fn test_enter_free_cam() {
+        let mut scene = PlanetFlightScene::default();
+        assert_eq!(scene.camera_mode, CameraMode::Chase);
+
+        scene.enter_free_cam();
+        assert_eq!(scene.camera_mode, CameraMode::Free);
+        assert_eq!(scene.free_cam_pos, scene.camera.position);
     }
 }

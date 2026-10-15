@@ -30,6 +30,7 @@ fn main() {
     .register_action("pause", [KEY_P, KEY_ESCAPE])
     .register_action("switch_scene", [KEY_TAB])
     .register_action("toggle_camera", [KEY_C])
+    .register_action("free_camera", [KEY_F])
     .register_action("airbrake", [KEY_B, KEY_X])
     .register_action("landing_gear", [KEY_G])
     .register_action("hover_mode", [KEY_H])

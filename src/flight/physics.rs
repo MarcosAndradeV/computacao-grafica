@@ -1,6 +1,6 @@
 use muxapp::muxui::Vector3;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct FlightControlInput {
     pub pitch: f32,          // -1.0 (down) to +1.0 (up)
     pub roll: f32,           // -1.0 (left) to +1.0 (right)
@@ -341,5 +341,18 @@ mod tests {
         input.throttle_delta = -10.0;
         ship.step(&input, 0.0, 1.0);
         assert!(ship.throttle >= 0.0);
+    }
+
+    #[test]
+    fn test_flight_control_input_default() {
+        let input = FlightControlInput::default();
+        assert_eq!(input.pitch, 0.0);
+        assert_eq!(input.roll, 0.0);
+        assert_eq!(input.yaw, 0.0);
+        assert_eq!(input.throttle_delta, 0.0);
+        assert!(!input.afterburner);
+        assert!(!input.airbrake);
+        assert_eq!(input.vtol_up, 0.0);
+        assert_eq!(input.vtol_down, 0.0);
     }
 }

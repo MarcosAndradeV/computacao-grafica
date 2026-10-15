@@ -78,7 +78,8 @@ impl Scene<AppState> for PauseOverlayScene {
              - G: Landing Gear\n\
              - H: Hover Mode (Altitude hold)\n\
              - Space / Ctrl: VTOL Thrusters\n\
-             - C: Toggle Cockpit / Chase Camera\n\
+             - C: Cycle Camera (Chase / Cockpit / Free)\n\
+             - F: Toggle Free Camera (WASD to Fly, Shift Turbo)\n\
              - Tab: Switch Scene\n\
              - F5: Live Reload style.gss",
         )

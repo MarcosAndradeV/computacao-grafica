@@ -1,6 +1,9 @@
 use muxapp::muxui::{d3::*, *};
 use std::f32::consts::PI;
 
+const GRID_SIZE: i32 = 60;
+const CELL_SIZE: f32 = 25.0;
+
 pub struct PlanetaryTerrain {
     pub grid_size: i32,
     pub cell_size: f32,
@@ -10,8 +13,8 @@ pub struct PlanetaryTerrain {
 impl Default for PlanetaryTerrain {
     fn default() -> Self {
         Self {
-            grid_size: 60,
-            cell_size: 25.0, // 60 * 25 = 1500m visible terrain domain
+            grid_size: GRID_SIZE,
+            cell_size: CELL_SIZE,
             water_level: 0.0,
         }
     }
