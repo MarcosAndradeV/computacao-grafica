@@ -202,8 +202,8 @@ dependencies = [
 
 [[package]]
 name = "muxapp"
-version = "0.1.0"
-source = "git+https://github.com/MarcosAndradeV/mux#6c72973d629ff2bbf133a875918f566435c4bc83"
+version = "0.3.0"
+source = "git+https://github.com/MarcosAndradeV/mux#0483a12061c9b39350395be843c79c1338e372f1"
 dependencies = [
  "muxui",
  "muxutils",
@@ -212,16 +212,16 @@ dependencies = [
 
 [[package]]
 name = "muxui"
-version = "0.1.0"
-source = "git+https://github.com/MarcosAndradeV/mux#6c72973d629ff2bbf133a875918f566435c4bc83"
+version = "0.3.0"
+source = "git+https://github.com/MarcosAndradeV/mux#0483a12061c9b39350395be843c79c1338e372f1"
 dependencies = [
  "muxutils",
 ]
 
 [[package]]
 name = "muxutils"
-version = "0.1.0"
-source = "git+https://github.com/MarcosAndradeV/mux#6c72973d629ff2bbf133a875918f566435c4bc83"
+version = "0.3.0"
+source = "git+https://github.com/MarcosAndradeV/mux#0483a12061c9b39350395be843c79c1338e372f1"
 dependencies = [
  "gss",
  "raylib",
@@ -295,7 +295,7 @@ dependencies = [
 [[package]]
 name = "raylib"
 version = "0.1.0"
-source = "git+https://github.com/MarcosAndradeV/raylib-rs?rev=d5a65f5#d5a65f5379556f3b8b43a31c7f29cf15c273fabd"
+source = "git+https://github.com/MarcosAndradeV/raylib-rs#28f65c6cb632ad7eba41d04b3ff6dab45dfdfda3"
 dependencies = [
  "bindgen",
 ]
