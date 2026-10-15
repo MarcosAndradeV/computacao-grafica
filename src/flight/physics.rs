@@ -88,8 +88,8 @@ impl SpaceshipPhysics {
     /// Re-orthonormalizes basis vectors to prevent drift.
     pub fn normalize_basis(&mut self) {
         self.forward = self.forward.normalize();
-        self.right = self.forward.cross(self.up).normalize();
-        self.up = self.right.cross(self.forward).normalize();
+        self.right = self.up.cross(self.forward).normalize();
+        self.up = self.forward.cross(self.right).normalize();
     }
 
     /// Rotate orientation using pitch, roll, yaw rates.
@@ -264,6 +264,75 @@ impl SpaceshipPhysics {
 
         self.position = self.position + self.velocity * dt;
     }
+
+    /// Computes the rotation axis (unit Vector3) and rotation angle in degrees
+    /// corresponding to the ship's current orientation basis vectors (forward, right, up)
+    /// relative to the canonical identity orientation (forward=(0,0,1), right=(1,0,0), up=(0,1,0)).
+    /// Suitable for passing directly to Raylib's `DrawModelEx`.
+    #[allow(dead_code)]
+    pub fn get_axis_angle(&self) -> (Vector3, f32) {
+        let trace = self.right.x + self.up.y + self.forward.z;
+        let cos_theta = ((trace - 1.0) * 0.5).clamp(-1.0, 1.0);
+        let angle_rad = cos_theta.acos();
+        let angle_deg = angle_rad.to_degrees();
+
+        // If angle is negligible, return default axis with 0 angle
+        if angle_deg < 0.001 {
+            return (Vector3::new(0.0, 1.0, 0.0), 0.0);
+        }
+
+        // Near 180 degrees singularity check
+        if angle_deg > 179.999 {
+            let axis = if self.right.x >= self.up.y && self.right.x >= self.forward.z {
+                let x = ((self.right.x + 1.0) * 0.5).max(0.0).sqrt();
+                if x > 1e-4 {
+                    let y = (self.right.y + self.up.x) / (4.0 * x);
+                    let z = (self.right.z + self.forward.x) / (4.0 * x);
+                    Vector3::new(x, y, z)
+                } else {
+                    Vector3::new(1.0, 0.0, 0.0)
+                }
+            } else if self.up.y >= self.forward.z {
+                let y = ((self.up.y + 1.0) * 0.5).max(0.0).sqrt();
+                if y > 1e-4 {
+                    let x = (self.right.y + self.up.x) / (4.0 * y);
+                    let z = (self.up.z + self.forward.y) / (4.0 * y);
+                    Vector3::new(x, y, z)
+                } else {
+                    Vector3::new(0.0, 1.0, 0.0)
+                }
+            } else {
+                let z = ((self.forward.z + 1.0) * 0.5).max(0.0).sqrt();
+                if z > 1e-4 {
+                    let x = (self.right.z + self.forward.x) / (4.0 * z);
+                    let y = (self.up.z + self.forward.y) / (4.0 * z);
+                    Vector3::new(x, y, z)
+                } else {
+                    Vector3::new(0.0, 0.0, 1.0)
+                }
+            };
+            let len = axis.length();
+            let norm_axis = if len > 1e-5 {
+                axis * (1.0 / len)
+            } else {
+                Vector3::new(0.0, 1.0, 0.0)
+            };
+            return (norm_axis, angle_deg);
+        }
+
+        let raw_axis = Vector3::new(
+            self.up.z - self.forward.y,
+            self.forward.x - self.right.z,
+            self.right.y - self.up.x,
+        );
+
+        let len = raw_axis.length();
+        if len > 1e-5 {
+            (raw_axis * (1.0 / len), angle_deg)
+        } else {
+            (Vector3::new(0.0, 1.0, 0.0), 0.0)
+        }
+    }
 }
 
 /// Rotates vector `v` around unit axis `axis` by `angle` radians (Rodrigues' rotation formula).
@@ -354,5 +423,47 @@ mod tests {
         assert!(!input.airbrake);
         assert_eq!(input.vtol_up, 0.0);
         assert_eq!(input.vtol_down, 0.0);
+    }
+
+    #[test]
+    fn test_axis_angle_identity() {
+        let ship = SpaceshipPhysics::default();
+        let (axis, angle) = ship.get_axis_angle();
+        assert_eq!(angle, 0.0);
+        assert!(axis.length() > 0.0);
+    }
+
+    #[test]
+    fn test_axis_angle_yaw_right() {
+        let mut ship = SpaceshipPhysics::default();
+        // Yaw 90 degrees around +Y axis
+        ship.rotate(0.0, 0.0, std::f32::consts::FRAC_PI_2);
+        let (axis, angle) = ship.get_axis_angle();
+        assert!((angle - 90.0).abs() < 1e-2, "Expected 90 deg, got {}", angle);
+        assert!((axis.y - 1.0).abs() < 1e-3);
+        assert!(axis.x.abs() < 1e-3);
+        assert!(axis.z.abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_axis_angle_pitch() {
+        let mut ship = SpaceshipPhysics::default();
+        // Pitch 90 degrees around +X axis
+        ship.rotate(std::f32::consts::FRAC_PI_2, 0.0, 0.0);
+        let (axis, angle) = ship.get_axis_angle();
+        assert!((angle - 90.0).abs() < 1e-2, "Expected 90 deg, got {}", angle);
+        assert!((axis.x - 1.0).abs() < 1e-3);
+        assert!(axis.y.abs() < 1e-3);
+        assert!(axis.z.abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_axis_angle_180_degrees() {
+        let mut ship = SpaceshipPhysics::default();
+        // Pitch 180 degrees
+        ship.rotate(std::f32::consts::PI, 0.0, 0.0);
+        let (axis, angle) = ship.get_axis_angle();
+        assert!((angle - 180.0).abs() < 0.1, "Expected 180 deg, got {}", angle);
+        assert!((axis.x.abs() - 1.0).abs() < 1e-2);
     }
 }
