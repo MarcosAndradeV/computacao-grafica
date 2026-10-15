@@ -13,9 +13,10 @@ struct AppState {
     moon_rotation: f32,
     moon_orbit_rotation: f32,
 
-    // Spacecraft dynamics (Linear & Angular velocities)
-    velocity: Vector3,
-    angular_velocity: Vector3, // x = yaw, y = pitch, z = roll
+    // Real world-space momentum vector
+    world_velocity: Vector3,
+
+    brakes: bool,
 }
 
 const SUN_RADIUS: f32 = 4.0;
@@ -24,141 +25,200 @@ const EARTH_ORBIT_RADIUS: f32 = 8.0;
 const MOON_RADIUS: f32 = 0.16;
 const MOON_ORBIT_RADIUS: f32 = 1.5;
 
-// Flight Tuning Parameters
-const THRUST_FORWARD: f32 = 40.0;
-const THRUST_STRAFE: f32 = 25.0;
-const THRUST_VERTICAL: f32 = 25.0;
-const LINEAR_DAMPING: f32 = 0.985;  // Slight space drag (0.999 for pure vacuum)
-const ANGULAR_DAMPING: f32 = 0.90; // Inertial dampening for turning
-
-const MOUSE_SENSITIVITY: f32 = 0.008;
-const ROLL_ACCEL: f32 = 60.0;
+// Space Flight Parameters
+const MAIN_THRUST: f32 = 60.0; // Forward / Back thrust (W/S)
+const STRAFE_THRUST: f32 = 35.0; // Lateral RCS thrusters (A/D)
+const VERTICAL_THRUST: f32 = 35.0; // Vertical RCS thrusters (Space/Shift)
+const SPACE_DRAG: f32 = 0.992; // Near-vacuum inertia retention (0.999 for hard vacuum)
+const MOUSE_SENSITIVITY: f32 = 0.003;
+const ROLL_SPEED: f32 = 90.0; // Degrees per second
 
 fn main() {
-    App::init(800, 600, "Solar Orbit - Space Flight", AppState::default)
-        .set_virtual_resolution(800, 600)
-        .on_load(|s, _| {
-            unsafe { MaximizeWindow() };
-            s.camera = Camera3D {
-                position: Vector3 {
-                    x: 0.0,
-                    y: 8.0,
-                    z: 18.0,
-                },
-                target: Vector3::default(),
-                up: Vector3 {
-                    y: 1.0,
-                    ..Default::default()
-                },
-                fovy: 75.0,
-                projection: CAMERA_PERSPECTIVE as _,
-            };
-            s.rotation_speed = 0.8;
+    App::init(
+        800,
+        600,
+        "Solar Orbit - Real Space Flight",
+        AppState::default,
+    )
+    .set_virtual_resolution(800, 600)
+    .on_load(|s, _| {
+        unsafe { MaximizeWindow() };
+        s.camera = Camera3D {
+            position: Vector3 {
+                x: 0.0,
+                y: 8.0,
+                z: 18.0,
+            },
+            target: Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            up: Vector3 {
+                y: 1.0,
+                ..Default::default()
+            },
+            fovy: 75.0,
+            projection: CAMERA_PERSPECTIVE as _,
+        };
+        s.rotation_speed = 0.8;
 
-            unsafe {
-                // Lock and hide cursor for seamless cockpit / mouse look
-                DisableCursor();
-            }
-        })
-        .set_fps(60) // 60 FPS provides smoother inertia integration
-        .set_style_file("style.gss")
-        .on_update(update)
-        .run();
+        unsafe {
+            DisableCursor();
+        }
+    })
+    .set_fps(60)
+    .set_style_file("style.gss")
+    .on_update(update)
+    .run();
 }
 
 fn update(s: &mut AppState, style: &Style) {
     let dt = unsafe { GetFrameTime() };
 
-    // Celestial Bodies updates (scaled by dt for framerate independence)
+    // Celestial bodies updates
     s.earth_rotation += 60.0 * s.rotation_speed * dt;
     s.earth_orbit_rotation += (365.0 / 360.0) * 20.0 * s.rotation_speed * dt;
     s.moon_rotation += 30.0 * s.rotation_speed * dt;
     s.moon_orbit_rotation += 45.0 * s.rotation_speed * dt;
 
     unsafe {
-        // --- 1. Spacecraft Rotation Input (Pitch, Yaw, Roll) ---
+        // --- 1. Compute Orientation Basis Vectors (Forward, Right, Up) ---
+        let mut forward = Vector3 {
+            x: s.camera.target.x - s.camera.position.x,
+            y: s.camera.target.y - s.camera.position.y,
+            z: s.camera.target.z - s.camera.position.z,
+        };
+        let f_len = (forward.x * forward.x + forward.y * forward.y + forward.z * forward.z).sqrt();
+        if f_len > 0.0001 {
+            forward.x /= f_len;
+            forward.y /= f_len;
+            forward.z /= f_len;
+        }
+
+        // Right = Forward x Up
+        let up = s.camera.up;
+        let mut right = Vector3 {
+            x: forward.y * up.z - forward.z * up.y,
+            y: forward.z * up.x - forward.x * up.z,
+            z: forward.x * up.y - forward.y * up.x,
+        };
+        let r_len = (right.x * right.x + right.y * right.y + right.z * right.z).sqrt();
+        if r_len > 0.0001 {
+            right.x /= r_len;
+            right.y /= r_len;
+            right.z /= r_len;
+        }
+
+        // True Ship Up = Right x Forward
+        let ship_up = Vector3 {
+            x: right.y * forward.z - right.z * forward.y,
+            y: right.z * forward.x - right.x * forward.z,
+            z: right.x * forward.y - right.y * forward.x,
+        };
+
+        // --- 2. Orient Camera (Mouse Pitch/Yaw & Q/E Roll) ---
         let mouse_delta = GetMouseDelta();
+        let yaw = mouse_delta.x * MOUSE_SENSITIVITY * 40.0;
+        let pitch = mouse_delta.y * MOUSE_SENSITIVITY * 40.0;
 
-        // Mouse X -> Yaw, Mouse Y -> Pitch (inverted Y feels natural in flight)
-        s.angular_velocity.x += mouse_delta.x * MOUSE_SENSITIVITY;
-        s.angular_velocity.y += mouse_delta.y * MOUSE_SENSITIVITY;
-
-        // Roll thrusters: Q / E
+        let mut roll = 0.0;
         if is_key_down(KEY_Q) {
-            s.angular_velocity.z -= ROLL_ACCEL * dt;
+            roll -= ROLL_SPEED * dt;
         }
         if is_key_down(KEY_E) {
-            s.angular_velocity.z += ROLL_ACCEL * dt;
+            roll += ROLL_SPEED * dt;
         }
 
-        // Apply angular damping (stabilization gyros)
-        s.angular_velocity.x *= ANGULAR_DAMPING;
-        s.angular_velocity.y *= ANGULAR_DAMPING;
-        s.angular_velocity.z *= ANGULAR_DAMPING;
+        // Update camera orientation with 0 positional movement
+        UpdateCameraPro(
+            &mut s.camera,
+            Vector3::default(),
+            Vector3 {
+                x: yaw,
+                y: pitch,
+                z: roll,
+            },
+            0.0,
+        );
 
-        // --- 2. Spacecraft Linear Thrust Input ---
-        let mut thrust = Vector3::default();
+        // --- 3. Thruster Acceleration along Current Heading ---
+        let mut thrust_world = Vector3::default();
 
-        // Forward / Backward (Surge)
+        // W/S: Accelerate strictly in forward/backward direction of ship's nose
         if is_key_down(KEY_W) {
-            thrust.x += THRUST_FORWARD;
+            thrust_world.x += forward.x * MAIN_THRUST;
+            thrust_world.y += forward.y * MAIN_THRUST;
+            thrust_world.z += forward.z * MAIN_THRUST;
         }
         if is_key_down(KEY_S) {
-            thrust.x -= THRUST_FORWARD;
+            thrust_world.x -= forward.x * MAIN_THRUST;
+            thrust_world.y -= forward.y * MAIN_THRUST;
+            thrust_world.z -= forward.z * MAIN_THRUST;
         }
 
-        // Strafe Left / Right (Sway)
-        if is_key_down(KEY_A) {
-            thrust.y -= THRUST_STRAFE;
-        }
+        // A/D: Strafe left/right along ship lateral axis
         if is_key_down(KEY_D) {
-            thrust.y += THRUST_STRAFE;
+            thrust_world.x += right.x * STRAFE_THRUST;
+            thrust_world.y += right.y * STRAFE_THRUST;
+            thrust_world.z += right.z * STRAFE_THRUST;
+        }
+        if is_key_down(KEY_A) {
+            thrust_world.x -= right.x * STRAFE_THRUST;
+            thrust_world.y -= right.y * STRAFE_THRUST;
+            thrust_world.z -= right.z * STRAFE_THRUST;
         }
 
-        // Vertical Heave: SPACE = Up, LEFT_SHIFT / C = Down
+        // SPACE / SHIFT: Vertical heave along ship roof/floor axis
         if is_key_down(KEY_SPACE) {
-            thrust.z += THRUST_VERTICAL;
+            thrust_world.x += ship_up.x * VERTICAL_THRUST;
+            thrust_world.y += ship_up.y * VERTICAL_THRUST;
+            thrust_world.z += ship_up.z * VERTICAL_THRUST;
         }
         if is_key_down(KEY_LEFT_SHIFT) || is_key_down(KEY_C) {
-            thrust.z -= THRUST_VERTICAL;
+            thrust_world.x -= ship_up.x * VERTICAL_THRUST;
+            thrust_world.y -= ship_up.y * VERTICAL_THRUST;
+            thrust_world.z -= ship_up.z * VERTICAL_THRUST;
         }
 
-        // Emergency Flight Brake / Kill Drift (X key)
-        if is_key_down(KEY_X) {
-            s.velocity.x *= 0.85;
-            s.velocity.y *= 0.85;
-            s.velocity.z *= 0.85;
+        // Emergency Flight Brake
+        if is_key_pressed(KEY_X) {
+            s.brakes = !s.brakes;
         }
 
-        // Integrate linear acceleration into velocity
-        s.velocity.x += thrust.x * dt;
-        s.velocity.y += thrust.y * dt;
-        s.velocity.z += thrust.z * dt;
+        if s.brakes {
+            s.world_velocity.x *= 0.90;
+            s.world_velocity.y *= 0.90;
+            s.world_velocity.z *= 0.90;
+        }
 
-        // Apply space drift damping
-        s.velocity.x *= LINEAR_DAMPING.powf(dt * 60.0);
-        s.velocity.y *= LINEAR_DAMPING.powf(dt * 60.0);
-        s.velocity.z *= LINEAR_DAMPING.powf(dt * 60.0);
+        // Integrate acceleration into world velocity vector: v = v + a * dt
+        s.world_velocity.x += thrust_world.x * dt;
+        s.world_velocity.y += thrust_world.y * dt;
+        s.world_velocity.z += thrust_world.z * dt;
 
-        // --- 3. Raylib Pro Camera Update ---
-        // Raylib UpdateCameraPro expects movement relative to ship orientation:
-        // Movement: x = Forward/Back, y = Right/Left, z = Up/Down
-        // Rotation: x = Yaw, y = Pitch, z = Roll
-        let movement_step = Vector3 {
-            x: s.velocity.x * dt,
-            y: s.velocity.y * dt,
-            z: s.velocity.z * dt,
+        // Apply vacuum inertia drag
+        let drag = SPACE_DRAG.powf(dt * 60.0);
+        s.world_velocity.x *= drag;
+        s.world_velocity.y *= drag;
+        s.world_velocity.z *= drag;
+
+        // --- 4. Translate Camera through World Space ---
+        let delta_pos = Vector3 {
+            x: s.world_velocity.x * dt,
+            y: s.world_velocity.y * dt,
+            z: s.world_velocity.z * dt,
         };
 
-        let rotation_step = Vector3 {
-            x: s.angular_velocity.x,
-            y: s.angular_velocity.y,
-            z: s.angular_velocity.z,
-        };
+        s.camera.position.x += delta_pos.x;
+        s.camera.position.y += delta_pos.y;
+        s.camera.position.z += delta_pos.z;
 
-        UpdateCameraPro(&mut s.camera, movement_step, rotation_step, 0.0);
+        s.camera.target.x += delta_pos.x;
+        s.camera.target.y += delta_pos.y;
+        s.camera.target.z += delta_pos.z;
 
-        // --- 4. Render Scene ---
+        // --- 5. Render Scene ---
         BeginMode3D(s.camera);
 
         // Sun
@@ -188,27 +248,22 @@ fn update(s: &mut AppState, style: &Style) {
 
         rlPopMatrix();
 
-        DrawGrid(40, 2.0);
+        DrawGrid(60, 2.0);
 
         EndMode3D();
 
-        // Reticle HUD
+        // HUD & Flight telemetry
         ReticleHUD.place(style, "hud");
 
-        let speed = (s.velocity.x.powi(2) + s.velocity.y.powi(2) + s.velocity.z.powi(2)).sqrt();
-        TextElement::new(
-            format!("THRUST SPEED: {:.1} m/s", speed),
-            // 10,
-            // 30,
-            // 18,
-            // LIME,
-        ).place(style, "thrust_speed");
+        let speed =
+            (s.world_velocity.x.powi(2) + s.world_velocity.y.powi(2) + s.world_velocity.z.powi(2))
+                .sqrt();
+
+        TextElement::new(format!("VELOCITY: {:.1} m/s", speed)).place(style, "thrust_speed");
 
         DrawFPS(10, 10);
     }
 }
-
-
 
 fn draw_sphere_basic(color: Color) {
     unsafe {
@@ -243,12 +298,10 @@ fn draw_sphere_basic(color: Color) {
                 let sin_lon1 = lon1.sin();
                 let cos_lon1 = lon1.cos();
 
-                // Triangle 1
                 rlVertex3f(cos_lat0 * sin_lon0, sin_lat0, cos_lat0 * cos_lon0);
                 rlVertex3f(cos_lat1 * sin_lon1, sin_lat1, cos_lat1 * cos_lon1);
                 rlVertex3f(cos_lat1 * sin_lon0, sin_lat1, cos_lat1 * cos_lon0);
 
-                // Triangle 2
                 rlVertex3f(cos_lat0 * sin_lon0, sin_lat0, cos_lat0 * cos_lon0);
                 rlVertex3f(cos_lat0 * sin_lon1, sin_lat0, cos_lat0 * cos_lon1);
                 rlVertex3f(cos_lat1 * sin_lon1, sin_lat1, cos_lat1 * cos_lon1);

@@ -1,3 +1,5 @@
+brakes = true
+
 thrust_speed = {
     top = 90%,
     left = 2%,
