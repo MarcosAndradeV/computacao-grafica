@@ -8,7 +8,7 @@ pub struct FlightControlInput {
     pub throttle_delta: f32, // +/- delta to throttle
     pub afterburner: bool,
     pub airbrake: bool,
-    pub vtol_up: f32,        // 0.0 to 1.0 vertical thruster
+    pub vtol_up: f32, // 0.0 to 1.0 vertical thruster
     pub vtol_down: f32,
     pub gear_toggle: bool,
     pub hover_mode_toggle: bool,
@@ -27,8 +27,8 @@ pub struct SpaceshipPhysics {
     pub angular_velocity: Vector3, // pitch, roll, yaw rates
 
     // Flight Controls & Engine
-    pub throttle: f32,        // 0.0 to 1.0
-    pub max_thrust: f32,      // Newtons / mass (acceleration)
+    pub throttle: f32,   // 0.0 to 1.0
+    pub max_thrust: f32, // Newtons / mass (acceleration)
     pub boost_multiplier: f32,
     pub airbrake: bool,
     pub gear_down: bool,
@@ -202,7 +202,8 @@ impl SpaceshipPhysics {
                 1.0
             };
 
-            let lift_force = dynamic_pressure * self.wing_area * self.lift_coefficient * stall_factor;
+            let lift_force =
+                dynamic_pressure * self.wing_area * self.lift_coefficient * stall_factor;
             let lift_accel = self.up * (lift_force / self.mass);
             total_accel = total_accel + lift_accel;
 
@@ -439,7 +440,11 @@ mod tests {
         // Yaw 90 degrees around +Y axis
         ship.rotate(0.0, 0.0, std::f32::consts::FRAC_PI_2);
         let (axis, angle) = ship.get_axis_angle();
-        assert!((angle - 90.0).abs() < 1e-2, "Expected 90 deg, got {}", angle);
+        assert!(
+            (angle - 90.0).abs() < 1e-2,
+            "Expected 90 deg, got {}",
+            angle
+        );
         assert!((axis.y - 1.0).abs() < 1e-3);
         assert!(axis.x.abs() < 1e-3);
         assert!(axis.z.abs() < 1e-3);
@@ -451,7 +456,11 @@ mod tests {
         // Pitch 90 degrees around +X axis
         ship.rotate(std::f32::consts::FRAC_PI_2, 0.0, 0.0);
         let (axis, angle) = ship.get_axis_angle();
-        assert!((angle - 90.0).abs() < 1e-2, "Expected 90 deg, got {}", angle);
+        assert!(
+            (angle - 90.0).abs() < 1e-2,
+            "Expected 90 deg, got {}",
+            angle
+        );
         assert!((axis.x - 1.0).abs() < 1e-3);
         assert!(axis.y.abs() < 1e-3);
         assert!(axis.z.abs() < 1e-3);
@@ -463,7 +472,11 @@ mod tests {
         // Pitch 180 degrees
         ship.rotate(std::f32::consts::PI, 0.0, 0.0);
         let (axis, angle) = ship.get_axis_angle();
-        assert!((angle - 180.0).abs() < 0.1, "Expected 180 deg, got {}", angle);
+        assert!(
+            (angle - 180.0).abs() < 0.1,
+            "Expected 180 deg, got {}",
+            angle
+        );
         assert!((axis.x.abs() - 1.0).abs() < 1e-2);
     }
 }

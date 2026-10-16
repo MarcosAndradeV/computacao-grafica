@@ -227,8 +227,9 @@ impl Scene<AppState> for PlanetFlightScene {
         });
     }
 
-    fn draw_2d(&mut self, _state: &AppState, style: &Style) {
+    fn draw_2d(&mut self, _state: &mut AppState, style: &Style) -> SceneAction {
         FlightHUD::draw(&self.ship, &self.camera, style, self.camera_mode);
+        SceneAction::None
     }
 }
 

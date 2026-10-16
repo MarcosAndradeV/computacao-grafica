@@ -72,7 +72,8 @@ impl PlanetaryTerrain {
         let start_x = snap_x - (half_grid as f32) * self.cell_size;
         let start_z = snap_z - (half_grid as f32) * self.cell_size;
 
-        let mut terrain_vertices = Vec::with_capacity((self.grid_size * self.grid_size * 6) as usize);
+        let mut terrain_vertices =
+            Vec::with_capacity((self.grid_size * self.grid_size * 6) as usize);
 
         // Build terrain mesh (60x60 = 21,600 vertices safely chunked by draw_trimesh_buffered)
         for i in 0..self.grid_size {
@@ -132,21 +133,61 @@ impl PlanetaryTerrain {
 
     fn shaded_color(h: f32, light: f32) -> Color {
         let base = if h < -25.0 {
-            Color { r: 14, g: 28, b: 46, a: 255 }    // Deep abyssal ocean floor
+            Color {
+                r: 14,
+                g: 28,
+                b: 46,
+                a: 255,
+            } // Deep abyssal ocean floor
         } else if h < -8.0 {
-            Color { r: 20, g: 48, b: 70, a: 255 }    // Continental shelf seabed
+            Color {
+                r: 20,
+                g: 48,
+                b: 70,
+                a: 255,
+            } // Continental shelf seabed
         } else if h < 0.0 {
-            Color { r: 32, g: 78, b: 92, a: 255 }    // Submerged coastal shoals / reef
+            Color {
+                r: 32,
+                g: 78,
+                b: 92,
+                a: 255,
+            } // Submerged coastal shoals / reef
         } else if h < 3.0 {
-            Color { r: 215, g: 200, b: 150, a: 255 } // Sandy shore / beach above water
+            Color {
+                r: 215,
+                g: 200,
+                b: 150,
+                a: 255,
+            } // Sandy shore / beach above water
         } else if h < 30.0 {
-            Color { r: 45, g: 135, b: 55, a: 255 }   // Vibrant lowland grass
+            Color {
+                r: 45,
+                g: 135,
+                b: 55,
+                a: 255,
+            } // Vibrant lowland grass
         } else if h < 60.0 {
-            Color { r: 95, g: 130, b: 65, a: 255 }   // Highland plateau
+            Color {
+                r: 95,
+                g: 130,
+                b: 65,
+                a: 255,
+            } // Highland plateau
         } else if h < 95.0 {
-            Color { r: 125, g: 120, b: 115, a: 255 } // Rocky mountain slate
+            Color {
+                r: 125,
+                g: 120,
+                b: 115,
+                a: 255,
+            } // Rocky mountain slate
         } else {
-            Color { r: 245, g: 248, b: 252, a: 255 } // Snow peak
+            Color {
+                r: 245,
+                g: 248,
+                b: 252,
+                a: 255,
+            } // Snow peak
         };
 
         Color {
@@ -165,19 +206,35 @@ impl PlanetaryTerrain {
         let mut runway_vertices = Vec::with_capacity(128);
 
         // Dark asphalt runway surface (Counter-Clockwise, normal points +Y)
-        let asphalt_color = Color { r: 40, g: 42, b: 45, a: 255 };
+        let asphalt_color = Color {
+            r: 40,
+            g: 42,
+            b: 45,
+            a: 255,
+        };
         let norm = Vector3::new(0.0, 1.0, 0.0);
 
-        runway_vertices.push(Vertex3D::new(Vector3::new(-rw, y, -rl), asphalt_color).with_normal(norm));
-        runway_vertices.push(Vertex3D::new(Vector3::new(-rw, y, rl), asphalt_color).with_normal(norm));
-        runway_vertices.push(Vertex3D::new(Vector3::new(rw, y, -rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(-rw, y, -rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(-rw, y, rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(rw, y, -rl), asphalt_color).with_normal(norm));
 
-        runway_vertices.push(Vertex3D::new(Vector3::new(rw, y, -rl), asphalt_color).with_normal(norm));
-        runway_vertices.push(Vertex3D::new(Vector3::new(-rw, y, rl), asphalt_color).with_normal(norm));
-        runway_vertices.push(Vertex3D::new(Vector3::new(rw, y, rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(rw, y, -rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(-rw, y, rl), asphalt_color).with_normal(norm));
+        runway_vertices
+            .push(Vertex3D::new(Vector3::new(rw, y, rl), asphalt_color).with_normal(norm));
 
         // White Centerline stripes (Counter-Clockwise)
-        let stripe_color = Color { r: 245, g: 245, b: 245, a: 255 };
+        let stripe_color = Color {
+            r: 245,
+            g: 245,
+            b: 245,
+            a: 255,
+        };
         let stripe_w = 1.0;
         let stripe_len = 16.0;
         let gap = 16.0;
@@ -186,13 +243,23 @@ impl PlanetaryTerrain {
             let z_next = z + stripe_len;
             let sy = y + 0.05;
 
-            runway_vertices.push(Vertex3D::new(Vector3::new(-stripe_w, sy, z), stripe_color).with_normal(norm));
-            runway_vertices.push(Vertex3D::new(Vector3::new(-stripe_w, sy, z_next), stripe_color).with_normal(norm));
-            runway_vertices.push(Vertex3D::new(Vector3::new(stripe_w, sy, z), stripe_color).with_normal(norm));
+            runway_vertices.push(
+                Vertex3D::new(Vector3::new(-stripe_w, sy, z), stripe_color).with_normal(norm),
+            );
+            runway_vertices.push(
+                Vertex3D::new(Vector3::new(-stripe_w, sy, z_next), stripe_color).with_normal(norm),
+            );
+            runway_vertices
+                .push(Vertex3D::new(Vector3::new(stripe_w, sy, z), stripe_color).with_normal(norm));
 
-            runway_vertices.push(Vertex3D::new(Vector3::new(stripe_w, sy, z), stripe_color).with_normal(norm));
-            runway_vertices.push(Vertex3D::new(Vector3::new(-stripe_w, sy, z_next), stripe_color).with_normal(norm));
-            runway_vertices.push(Vertex3D::new(Vector3::new(stripe_w, sy, z_next), stripe_color).with_normal(norm));
+            runway_vertices
+                .push(Vertex3D::new(Vector3::new(stripe_w, sy, z), stripe_color).with_normal(norm));
+            runway_vertices.push(
+                Vertex3D::new(Vector3::new(-stripe_w, sy, z_next), stripe_color).with_normal(norm),
+            );
+            runway_vertices.push(
+                Vertex3D::new(Vector3::new(stripe_w, sy, z_next), stripe_color).with_normal(norm),
+            );
 
             z += stripe_len + gap;
         }
@@ -212,17 +279,27 @@ impl PlanetaryTerrain {
     fn draw_ocean(&self, d3: &Render3DContext, center_x: f32, center_z: f32) {
         let r = 2000.0;
         let y = self.water_level;
-        let ocean_color = Color { r: 24, g: 90, b: 165, a: 215 };
+        let ocean_color = Color {
+            r: 24,
+            g: 90,
+            b: 165,
+            a: 215,
+        };
         let norm = Vector3::new(0.0, 1.0, 0.0);
 
         let ocean_vertices = [
-            Vertex3D::new(Vector3::new(center_x - r, y, center_z - r), ocean_color).with_normal(norm),
-            Vertex3D::new(Vector3::new(center_x - r, y, center_z + r), ocean_color).with_normal(norm),
-            Vertex3D::new(Vector3::new(center_x + r, y, center_z - r), ocean_color).with_normal(norm),
-
-            Vertex3D::new(Vector3::new(center_x + r, y, center_z - r), ocean_color).with_normal(norm),
-            Vertex3D::new(Vector3::new(center_x - r, y, center_z + r), ocean_color).with_normal(norm),
-            Vertex3D::new(Vector3::new(center_x + r, y, center_z + r), ocean_color).with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x - r, y, center_z - r), ocean_color)
+                .with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x - r, y, center_z + r), ocean_color)
+                .with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x + r, y, center_z - r), ocean_color)
+                .with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x + r, y, center_z - r), ocean_color)
+                .with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x - r, y, center_z + r), ocean_color)
+                .with_normal(norm),
+            Vertex3D::new(Vector3::new(center_x + r, y, center_z + r), ocean_color)
+                .with_normal(norm),
         ];
 
         d3.draw_trimesh_buffered(&ocean_vertices);
@@ -235,8 +312,18 @@ impl PlanetaryTerrain {
         let height = 450.0;
 
         let mut dome_vertices = Vec::with_capacity(segments * 6);
-        let ground_color = Color { r: 130, g: 180, b: 230, a: 180 };
-        let sky_color = Color { r: 35, g: 75, b: 155, a: 0 };
+        let ground_color = Color {
+            r: 130,
+            g: 180,
+            b: 230,
+            a: 180,
+        };
+        let sky_color = Color {
+            r: 35,
+            g: 75,
+            b: 155,
+            a: 0,
+        };
 
         for i in 0..segments {
             let a0 = (i as f32 / segments as f32) * 2.0 * PI;
@@ -279,7 +366,10 @@ mod tests {
         for x in [-500.0, -200.0, 0.0, 300.0, 600.0] {
             for z in [-500.0, -200.0, 0.0, 300.0, 600.0] {
                 let h = terrain.get_surface_height(x, z);
-                assert!(h >= terrain.water_level, "Surface elevation should not be below water level");
+                assert!(
+                    h >= terrain.water_level,
+                    "Surface elevation should not be below water level"
+                );
             }
         }
     }
@@ -300,6 +390,9 @@ mod tests {
                 break;
             }
         }
-        assert!(found_seabed, "Expected ocean basins to descend beneath sea level to avoid coplanar Z-fighting");
+        assert!(
+            found_seabed,
+            "Expected ocean basins to descend beneath sea level to avoid coplanar Z-fighting"
+        );
     }
 }

@@ -7,7 +7,12 @@ pub struct FlightHUD;
 
 impl FlightHUD {
     /// Renders the complete flight instrument suite on top of the 3D scene.
-    pub fn draw(ship: &SpaceshipPhysics, camera: &Camera3D, style: &Style, camera_mode: CameraMode) {
+    pub fn draw(
+        ship: &SpaceshipPhysics,
+        camera: &Camera3D,
+        style: &Style,
+        camera_mode: CameraMode,
+    ) {
         let sw = get_virtual_screen_width();
         let sh = get_virtual_screen_height();
         let cx = sw * 0.5;
@@ -72,19 +77,36 @@ impl FlightHUD {
             .place(style, "hud_throttle");
 
         // Lower Telemetry Status Bar using Mux UI StackLayout & dynamic with_class
-        let gear_str = if ship.gear_down { "GEAR: DOWN [G]" } else { "GEAR: UP [G]" };
-        let brake_str = if ship.airbrake { "AIRBRAKE: ON [B]" } else { "AIRBRAKE: OFF [B]" };
-        let hover_str = if ship.hover_mode { "HOVER: ACTIVE [H]" } else { "HOVER: OFF [H]" };
+        let gear_str = if ship.gear_down {
+            "GEAR: DOWN [G]"
+        } else {
+            "GEAR: UP [G]"
+        };
+        let brake_str = if ship.airbrake {
+            "AIRBRAKE: ON [B]"
+        } else {
+            "AIRBRAKE: OFF [B]"
+        };
+        let hover_str = if ship.hover_mode {
+            "HOVER: ACTIVE [H]"
+        } else {
+            "HOVER: OFF [H]"
+        };
         let g_str = format!("G-FORCE: {:.1}G", ship.g_force);
 
-        let gear_elem = TextElement::new(gear_str)
-            .with_class(if ship.gear_down { "active" } else { "standby" });
-        let brake_elem = TextElement::new(brake_str)
-            .with_class(if ship.airbrake { "alert" } else { "standby" });
-        let hover_elem = TextElement::new(hover_str)
-            .with_class(if ship.hover_mode { "cyan" } else { "standby" });
-        let g_elem = TextElement::new(g_str)
-            .with_class("gold");
+        let gear_elem = TextElement::new(gear_str).with_class(if ship.gear_down {
+            "active"
+        } else {
+            "standby"
+        });
+        let brake_elem =
+            TextElement::new(brake_str).with_class(if ship.airbrake { "alert" } else { "standby" });
+        let hover_elem = TextElement::new(hover_str).with_class(if ship.hover_mode {
+            "cyan"
+        } else {
+            "standby"
+        });
+        let g_elem = TextElement::new(g_str).with_class("gold");
 
         StackLayout::new(&[
             ("hud_badge", &gear_elem),
@@ -100,7 +122,13 @@ impl FlightHUD {
             let dist_km = (ship.position - runway_pos).length() / 1000.0;
             let cue_color = SKYBLUE.lerp(WHITE, (ship.position.y * 0.05).sin().abs());
             let label = format!("[ RWY 01 | {:.1}km ]", dist_km);
-            draw_text(label, screen_pos.x as i32 - 45, screen_pos.y as i32 - 18, 13, cue_color);
+            draw_text(
+                label,
+                screen_pos.x as i32 - 45,
+                screen_pos.y as i32 - 18,
+                13,
+                cue_color,
+            );
             draw_rectangle_lines(
                 screen_pos.x as i32 - 12,
                 screen_pos.y as i32 - 12,
@@ -136,7 +164,12 @@ impl FlightHUD {
                 Vector2 { x: hx0, y: hy0 },
                 Vector2 { x: hx1, y: hy1 },
                 2.0,
-                Color { r: 50, g: 220, b: 90, a: 220 },
+                Color {
+                    r: 50,
+                    g: 220,
+                    b: 90,
+                    a: 220,
+                },
             );
 
             // Pitch ladder rungs (+10°, +20°, -10°, -20°)
@@ -151,20 +184,59 @@ impl FlightHUD {
                     let ry1 = cy + sin_r * rung_w + cos_r * offset;
 
                     let rung_color = if deg > 0.0 {
-                        Color { r: 80, g: 200, b: 240, a: 160 } // sky ladder
+                        Color {
+                            r: 80,
+                            g: 200,
+                            b: 240,
+                            a: 160,
+                        } // sky ladder
                     } else {
-                        Color { r: 230, g: 140, b: 60, a: 160 } // ground ladder
+                        Color {
+                            r: 230,
+                            g: 140,
+                            b: 60,
+                            a: 160,
+                        } // ground ladder
                     };
 
-                    DrawLineEx(Vector2 { x: rx0, y: ry0 }, Vector2 { x: rx1, y: ry1 }, 1.5, rung_color);
+                    DrawLineEx(
+                        Vector2 { x: rx0, y: ry0 },
+                        Vector2 { x: rx1, y: ry1 },
+                        1.5,
+                        rung_color,
+                    );
                 }
             }
 
             // Fixed aircraft reticle / crosshair at center screen
             let reticle_color = GREEN;
-            DrawLineEx(Vector2 { x: cx - 18.0, y: cy }, Vector2 { x: cx - 6.0, y: cy }, 2.0, reticle_color);
-            DrawLineEx(Vector2 { x: cx + 6.0, y: cy }, Vector2 { x: cx + 18.0, y: cy }, 2.0, reticle_color);
-            DrawLineEx(Vector2 { x: cx, y: cy - 10.0 }, Vector2 { x: cx, y: cy - 4.0 }, 2.0, reticle_color);
+            DrawLineEx(
+                Vector2 {
+                    x: cx - 18.0,
+                    y: cy,
+                },
+                Vector2 { x: cx - 6.0, y: cy },
+                2.0,
+                reticle_color,
+            );
+            DrawLineEx(
+                Vector2 { x: cx + 6.0, y: cy },
+                Vector2 {
+                    x: cx + 18.0,
+                    y: cy,
+                },
+                2.0,
+                reticle_color,
+            );
+            DrawLineEx(
+                Vector2 {
+                    x: cx,
+                    y: cy - 10.0,
+                },
+                Vector2 { x: cx, y: cy - 4.0 },
+                2.0,
+                reticle_color,
+            );
             DrawCircle(cx as i32, cy as i32, 2.0, reticle_color);
         }
     }
@@ -180,9 +252,27 @@ impl FlightHUD {
 
                 let marker_color = YELLOW;
                 DrawCircleLines(fpm_x as i32, fpm_y as i32, 7.0, marker_color);
-                DrawLine(fpm_x as i32 - 12, fpm_y as i32, fpm_x as i32 - 7, fpm_y as i32, marker_color);
-                DrawLine(fpm_x as i32 + 7, fpm_y as i32, fpm_x as i32 + 12, fpm_y as i32, marker_color);
-                DrawLine(fpm_x as i32, fpm_y as i32 - 12, fpm_x as i32, fpm_y as i32 - 7, marker_color);
+                DrawLine(
+                    fpm_x as i32 - 12,
+                    fpm_y as i32,
+                    fpm_x as i32 - 7,
+                    fpm_y as i32,
+                    marker_color,
+                );
+                DrawLine(
+                    fpm_x as i32 + 7,
+                    fpm_y as i32,
+                    fpm_x as i32 + 12,
+                    fpm_y as i32,
+                    marker_color,
+                );
+                DrawLine(
+                    fpm_x as i32,
+                    fpm_y as i32 - 12,
+                    fpm_x as i32,
+                    fpm_y as i32 - 7,
+                    marker_color,
+                );
             }
         }
     }
@@ -196,7 +286,12 @@ impl FlightHUD {
                 (cy - box_h * 0.5) as i32,
                 box_w as i32,
                 box_h as i32,
-                Color { r: 15, g: 25, b: 20, a: 200 },
+                Color {
+                    r: 15,
+                    g: 25,
+                    b: 20,
+                    a: 200,
+                },
             );
             DrawRectangleLines(
                 (cx - box_w * 0.5) as i32,
@@ -208,9 +303,18 @@ impl FlightHUD {
 
             // Compass indicator tick
             DrawTriangle(
-                Vector2 { x: cx, y: cy + 18.0 },
-                Vector2 { x: cx - 6.0, y: cy + 26.0 },
-                Vector2 { x: cx + 6.0, y: cy + 26.0 },
+                Vector2 {
+                    x: cx,
+                    y: cy + 18.0,
+                },
+                Vector2 {
+                    x: cx - 6.0,
+                    y: cy + 26.0,
+                },
+                Vector2 {
+                    x: cx + 6.0,
+                    y: cy + 26.0,
+                },
                 GREEN,
             );
         }
@@ -225,7 +329,12 @@ impl FlightHUD {
                 (cy - 85.0) as i32,
                 90,
                 170,
-                Color { r: 15, g: 25, b: 20, a: 180 },
+                Color {
+                    r: 15,
+                    g: 25,
+                    b: 20,
+                    a: 180,
+                },
             );
             DrawRectangleLines(
                 (spd_x - 45.0) as i32,
@@ -242,7 +351,12 @@ impl FlightHUD {
                 (cy - 85.0) as i32,
                 100,
                 170,
-                Color { r: 15, g: 25, b: 20, a: 180 },
+                Color {
+                    r: 15,
+                    g: 25,
+                    b: 20,
+                    a: 180,
+                },
             );
             DrawRectangleLines(
                 (alt_x - 50.0) as i32,

@@ -168,7 +168,7 @@ impl Scene<AppState> for SolarOrbitScene {
         });
     }
 
-    fn draw_2d(&mut self, _state: &AppState, style: &Style) {
+    fn draw_2d(&mut self, _state: &mut AppState, style: &Style) -> SceneAction {
         // HUD & Flight telemetry
         ReticleHUD.place(style, "hud");
 
@@ -177,6 +177,7 @@ impl Scene<AppState> for SolarOrbitScene {
 
         TextElement::new("SCENE: SOLAR ORBIT | [TAB] PLANET FLIGHT | [P] PAUSE / HELP")
             .place(style, "scene_info");
+        SceneAction::None
     }
 }
 

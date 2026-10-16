@@ -1,7 +1,7 @@
-use std::cell::Cell;
 use crate::AppState;
 use muxapp::muxui::*;
 use muxapp::{Input, Scene, SceneAction};
+use std::cell::Cell;
 
 #[derive(Default)]
 pub struct PauseOverlayScene {
@@ -23,12 +23,7 @@ impl Scene<AppState> for PauseOverlayScene {
         _style: &Style,
         _dt: f32,
     ) -> SceneAction {
-        if let Some(target) = self.switch_scene_requested.take() {
-            disable_cursor();
-            return SceneAction::Switch(target);
-        }
-
-        if input.is_action_pressed("pause") || self.resume_requested.take() {
+        if input.is_action_pressed("pause") {
             disable_cursor();
             return SceneAction::Pop;
         }
@@ -36,7 +31,7 @@ impl Scene<AppState> for PauseOverlayScene {
         SceneAction::None
     }
 
-    fn draw_2d(&mut self, _state: &AppState, style: &Style) {
+    fn draw_2d(&mut self, _ctx: &mut AppState, style: &Style) -> SceneAction {
         // Semi-transparent dark overlay on top of frozen 3D scene
         draw_rectangle_rec(get_virtual_screen_rect(), get_color(0x000000CC));
 
@@ -57,13 +52,16 @@ impl Scene<AppState> for PauseOverlayScene {
         .place(style, "pause_btn_col");
 
         if resume_btn.clicked() {
-            self.resume_requested.set(true);
+            disable_cursor();
+            return SceneAction::Pop;
         }
         if switch_to_planet.clicked() {
-            self.switch_scene_requested.set(Some("planet_flight".to_string()));
+            disable_cursor();
+            return SceneAction::Switch("planet_flight".to_string());
         }
         if switch_to_solar.clicked() {
-            self.switch_scene_requested.set(Some("solar_orbit".to_string()));
+            disable_cursor();
+            return SceneAction::Switch("solar_orbit".to_string());
         }
 
         // Control reference card
@@ -84,6 +82,7 @@ impl Scene<AppState> for PauseOverlayScene {
              - F5: Live Reload style.gss",
         )
         .place(style, "help_text");
+        SceneAction::None
     }
 
     fn on_exit(&mut self, _state: &mut AppState) {

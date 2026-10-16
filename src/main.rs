@@ -19,9 +19,7 @@ fn main() {
     )
     .on_load(|_, _| {
         maximize_window();
-        unsafe {
-            SetExitKey(0);
-        }
+        disable_exit_key();
     })
     .set_virtual_resolution(800, 600)
     .set_style_file("style.gss")
