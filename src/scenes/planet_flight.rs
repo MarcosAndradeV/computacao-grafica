@@ -249,125 +249,152 @@ impl PlanetFlightScene {
         d3.push_matrix(|ctx| {
             ctx.translate(self.ship.position);
 
-            // Construct and apply orientation matrix from basis vectors
             let m = Matrix::from_basis(
                 self.ship.right,
                 self.ship.up,
-                self.ship.forward,
+                -self.ship.forward,
                 Vector3::zero(),
             );
             unsafe {
                 rlMultMatrixf(&m as *const Matrix as *const f32);
-            }
-
-            // --- Starfighter Geometry ---
-            unsafe {
+                rlDisableBackfaceCulling(); // Garante que nenhum polígono fino suma ao rotacionar
                 rlBegin(RL_TRIANGLES as _);
 
-                // Fuselage Main Body (Dark Titanium)
-                rlColor4ub(45, 52, 60, 255);
-                let nose_z = 4.2;
-                let tail_z = -3.2;
+                // Coordenadas longitudinais (Frente = -Z, Traseira = +Z)
+                let nose_z = -4.2;
+                let mid_z  = -0.5;
+                let tail_z = 3.2;
                 let half_w = 0.9;
                 let h = 0.6;
 
-                // Nose cone (pointed forward along +Z)
+                // ==================== 1. NARIZ ====================
                 rlColor4ub(55, 65, 75, 255);
-                // Nose top
+                // Nariz Topo
                 rlVertex3f(0.0, 0.1, nose_z);
-                rlVertex3f(-half_w * 0.5, h * 0.4, 0.5);
-                rlVertex3f(half_w * 0.5, h * 0.4, 0.5);
+                rlVertex3f(-half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.5, h * 0.4, mid_z);
 
-                // Nose bottom
+                // Nariz Fundo
                 rlVertex3f(0.0, 0.1, nose_z);
-                rlVertex3f(half_w * 0.5, -h * 0.4, 0.5);
-                rlVertex3f(-half_w * 0.5, -h * 0.4, 0.5);
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.5, -h * 0.4, mid_z);
 
-                // Nose left
+                // Nariz Lateral Esquerda
                 rlVertex3f(0.0, 0.1, nose_z);
-                rlVertex3f(-half_w * 0.5, -h * 0.4, 0.5);
-                rlVertex3f(-half_w * 0.5, h * 0.4, 0.5);
+                rlVertex3f(-half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.5, h * 0.4, mid_z);
 
-                // Nose right
+                // Nariz Lateral Direita
                 rlVertex3f(0.0, 0.1, nose_z);
-                rlVertex3f(half_w * 0.5, h * 0.4, 0.5);
-                rlVertex3f(half_w * 0.5, -h * 0.4, 0.5);
+                rlVertex3f(half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
 
-                // Cockpit Canopy Glass (Glowing Cyan)
-                rlColor4ub(30, 190, 240, 220);
-                rlVertex3f(0.0, h * 0.75, 1.8);
-                rlVertex3f(-0.35, h * 0.4, 0.4);
-                rlVertex3f(0.35, h * 0.4, 0.4);
+                // ==================== 2. CORPO CENTRAL (FUSELAGEM) ====================
+                // Isso fecha o buraco que estava visível na captura de tela
+                rlColor4ub(45, 52, 60, 255);
 
-                rlVertex3f(0.0, h * 0.75, 1.8);
-                rlVertex3f(0.35, h * 0.4, 0.4);
-                rlVertex3f(0.0, h * 0.65, -0.6);
+                // Teto da fuselagem (2 triângulos)
+                rlVertex3f(-half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.6, h * 0.3, tail_z);
+                rlVertex3f(half_w * 0.5, h * 0.4, mid_z);
 
-                rlVertex3f(0.0, h * 0.75, 1.8);
-                rlVertex3f(0.0, h * 0.65, -0.6);
-                rlVertex3f(-0.35, h * 0.4, 0.4);
+                rlVertex3f(half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.6, h * 0.3, tail_z);
+                rlVertex3f(half_w * 0.6, h * 0.3, tail_z);
 
-                // Delta Wings (Left & Right)
+                // Fundo da fuselagem
+                rlVertex3f(-half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.6, -h * 0.3, tail_z);
+
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.6, -h * 0.3, tail_z);
+                rlVertex3f(-half_w * 0.6, -h * 0.3, tail_z);
+
+                // Laterais da fuselagem
+                rlVertex3f(-half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.6, h * 0.3, tail_z);
+
+                rlVertex3f(-half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(-half_w * 0.6, -h * 0.3, tail_z);
+                rlVertex3f(-half_w * 0.6, h * 0.3, tail_z);
+
+                rlVertex3f(half_w * 0.5, h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.6, h * 0.3, tail_z);
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
+
+                rlVertex3f(half_w * 0.5, -h * 0.4, mid_z);
+                rlVertex3f(half_w * 0.6, h * 0.3, tail_z);
+                rlVertex3f(half_w * 0.6, -h * 0.3, tail_z);
+
+                // ==================== 3. COCKPIT (CANOPY) ====================
+                rlColor4ub(30, 190, 240, 255);
+                rlVertex3f(0.0, h * 0.8, -1.8);
+                rlVertex3f(-0.35, h * 0.4, -0.4);
+                rlVertex3f(0.35, h * 0.4, -0.4);
+
+                rlVertex3f(0.0, h * 0.8, -1.8);
+                rlVertex3f(0.35, h * 0.4, -0.4);
+                rlVertex3f(0.0, h * 0.65, 0.6);
+
+                rlVertex3f(0.0, h * 0.8, -1.8);
+                rlVertex3f(0.0, h * 0.65, 0.6);
+                rlVertex3f(-0.35, h * 0.4, -0.4);
+
+                // ==================== 4. ASAS DELTA ====================
                 rlColor4ub(60, 70, 85, 255);
                 let wing_span = 4.8;
-                let wing_tip_z = -2.6;
+                let wing_tip_z = 2.6;
 
-                // Left Wing
-                rlVertex3f(-0.6, 0.0, 1.2);
+                // Asa Esquerda
+                rlVertex3f(-0.6, 0.0, -1.2);
                 rlVertex3f(-wing_span, 0.1, wing_tip_z);
                 rlVertex3f(-0.7, 0.0, tail_z);
 
-                rlVertex3f(-0.6, 0.0, 1.2);
-                rlVertex3f(-0.7, 0.0, tail_z);
-                rlVertex3f(-wing_span, 0.1, wing_tip_z);
-
-                // Right Wing
-                rlVertex3f(0.6, 0.0, 1.2);
+                // Asa Direita
+                rlVertex3f(0.6, 0.0, -1.2);
                 rlVertex3f(0.7, 0.0, tail_z);
                 rlVertex3f(wing_span, 0.1, wing_tip_z);
 
-                rlVertex3f(0.6, 0.0, 1.2);
-                rlVertex3f(wing_span, 0.1, wing_tip_z);
-                rlVertex3f(0.7, 0.0, tail_z);
-
-                // Twin Canted Vertical Stabilizers / Fins
+                // ==================== 5. DERIVAS / ESTABILIZADORES ====================
                 rlColor4ub(75, 88, 105, 255);
                 let fin_h = 1.4;
 
-                // Left Fin
-                rlVertex3f(-0.7, 0.1, tail_z + 1.2);
+                // Deriva Esquerda
+                rlVertex3f(-0.7, 0.1, tail_z - 1.2);
                 rlVertex3f(-1.1, fin_h, tail_z);
                 rlVertex3f(-0.8, 0.1, tail_z);
 
-                // Right Fin
-                rlVertex3f(0.7, 0.1, tail_z + 1.2);
+                // Deriva Direita
+                rlVertex3f(0.7, 0.1, tail_z - 1.2);
                 rlVertex3f(0.8, 0.1, tail_z);
                 rlVertex3f(1.1, fin_h, tail_z);
 
-                // Engine Exhaust Nozzles
+                // ==================== 6. EXAUSTORES TRASEIROS ====================
                 rlColor4ub(25, 25, 28, 255);
                 rlVertex3f(-0.5, 0.3, tail_z);
                 rlVertex3f(-0.2, -0.3, tail_z);
                 rlVertex3f(-0.5, -0.3, tail_z);
 
                 rlVertex3f(0.2, 0.3, tail_z);
-                rlVertex3f(0.5, -0.3, tail_z);
                 rlVertex3f(0.2, -0.3, tail_z);
+                rlVertex3f(0.5, -0.3, tail_z);
 
-                // Engine Plasma Flame (Length scales with throttle)
+                // ==================== 7. CHAMA DO MOTOR ====================
                 if self.ship.throttle > 0.05 {
                     let flame_len = 1.0 + self.ship.throttle * 4.2;
-                    rlColor4ub(60, 160, 255, 230); // Ion blue core
+                    rlColor4ub(60, 160, 255, 230);
 
-                    // Left Engine plume
+                    // Chama Esquerda (aponta para trás: +Z)
                     rlVertex3f(-0.35, 0.0, tail_z);
-                    rlVertex3f(-0.35, 0.0, tail_z - flame_len);
+                    rlVertex3f(-0.35, 0.0, tail_z + flame_len);
                     rlVertex3f(-0.5, 0.0, tail_z);
 
-                    // Right Engine plume
+                    // Chama Direita
                     rlVertex3f(0.35, 0.0, tail_z);
                     rlVertex3f(0.5, 0.0, tail_z);
-                    rlVertex3f(0.35, 0.0, tail_z - flame_len);
+                    rlVertex3f(0.35, 0.0, tail_z + flame_len);
                 }
 
                 rlEnd();
