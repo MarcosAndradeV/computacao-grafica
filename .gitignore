@@ -2,3 +2,4 @@ main
 main_raylib
 *.o
 src/*.o
+main_3d
