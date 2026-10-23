@@ -1,3 +1,8 @@
+// dependencias:
+//      sdl2-compat-devel ou SDL2-devel (Fedora) / libsdl2-dev (Debian/Ubuntu)
+//      libglvnd-devel (Fedora) / libgl1-mesa-dev (Debian/Ubuntu)
+//      flags/bibliotecas: -lSDL2 -lGL
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <cmath>

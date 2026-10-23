@@ -1,3 +1,8 @@
+// dependencias:
+//      Cargo: raylib (git = "https://github.com/MarcosAndradeV/raylib-rs")
+//      Sistema: libX11-devel (Fedora) / libx11-dev (Debian/Ubuntu)
+//      (raylib do sistema nao e necessario; o crate embute libraylib estatica)
+
 use raylib::rlgl::*;
 use raylib::*;
 

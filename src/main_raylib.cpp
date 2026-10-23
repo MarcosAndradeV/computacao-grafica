@@ -1,3 +1,7 @@
+// dependencias:
+//      raylib-devel (Fedora) / libraylib-dev (Debian/Ubuntu)
+//      flags/bibliotecas: -lraylib
+
 #include "raylib.h"
 #include "rlgl.h"
 #include <cmath>

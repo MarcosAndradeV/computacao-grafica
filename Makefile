@@ -11,11 +11,11 @@ SRC_DIR = src
 # -------------------------------------------------------------
 GLUT_TARGET = main_glut
 GLUT_SRCS   = $(SRC_DIR)/main_glut.cpp
-GLUT_PKG_L  = $(shell pkg-config --libs glut glu gl 2>/dev/null)
-GLUT_PKG_C  = $(shell pkg-config --cflags glut glu gl 2>/dev/null)
+GLUT_PKG_L  = $(shell pkg-config --libs glut gl 2>/dev/null)
+GLUT_PKG_C  = $(shell pkg-config --cflags glut gl 2>/dev/null)
 
 ifeq ($(strip $(GLUT_PKG_L)),)
-    GLUT_LIBS = -lGL -lGLU -lglut -lm
+    GLUT_LIBS = -lGL -lglut -lm
 else
     GLUT_LIBS = $(GLUT_PKG_L) -lm
 endif
@@ -96,6 +96,6 @@ run-raylib-rs: $(RAYLIB_RS_TARGET)
 	./$(RAYLIB_RS_TARGET)
 
 clean:
-	rm -f $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET) $(RAYLIB_RS_TARGET) $(CARGO_TARGET)
+	rm -rf $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET) $(RAYLIB_RS_TARGET) $(CARGO_TARGET)
 
 .PHONY: all clean glut raylib sdl run-glut run-raylib run-sdl run-raylib-rs raylib-rs

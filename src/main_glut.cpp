@@ -1,5 +1,7 @@
 // dependencias:
-//      freeglut-devel
+//      freeglut-devel (Fedora) / freeglut3-dev (Debian/Ubuntu)
+//      libglvnd-devel (Fedora) / libgl1-mesa-dev (Debian/Ubuntu)
+//      flags/bibliotecas: -lglut -lGL
 
 #include <GL/glut.h>
 #include <cmath>
