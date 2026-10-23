@@ -3,3 +3,6 @@ main_cpp
 main_chs
 main
 src/main.o
+main_glut
+main_raylib
+main_sdl
