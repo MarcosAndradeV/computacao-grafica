@@ -1,3 +1,6 @@
 main
 src/main.o
 target/
+main_glut
+main_raylib
+main_sdl
