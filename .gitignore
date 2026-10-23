@@ -1,3 +1,5 @@
 /target
 main_cpp
 main_chs
+main
+src/main.o
