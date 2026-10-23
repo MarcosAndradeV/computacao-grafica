@@ -3,7 +3,7 @@ mod scenes;
 
 use muxapp::muxui::*;
 use muxapp::{App, MouseAxis};
-use scenes::{PauseOverlayScene, PlanetFlightScene, SolarOrbitScene};
+use scenes::{PauseOverlayScene, PlanetFlightScene};
 
 #[derive(Default)]
 pub struct AppState {
@@ -43,7 +43,6 @@ fn main() {
     .register_axis("vtol", KEY_SPACE, KEY_LEFT_CONTROL)
     // Register scenes in MUX 0.2.0 SceneRouter
     .add_scene("planet_flight", PlanetFlightScene::default())
-    .add_scene("solar_orbit", SolarOrbitScene::default())
     .add_scene("pause", PauseOverlayScene::default())
     .set_active_scene("planet_flight")
     .run();

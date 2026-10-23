@@ -42,12 +42,12 @@ impl Scene<AppState> for PauseOverlayScene {
         // Action buttons
         let resume_btn = Button::new("Resume Flight (P)");
         let switch_to_planet = Button::new("Go to Planet Flight");
-        let switch_to_solar = Button::new("Go to Solar Orbit");
+        let exit = Button::new("Exit");
 
         StackLayout::new(&[
             ("btn_resume", &resume_btn),
             ("btn_planet", &switch_to_planet),
-            ("btn_solar", &switch_to_solar),
+            ("btn_exit", &exit),
         ])
         .place(style, "pause_btn_col");
 
@@ -59,9 +59,9 @@ impl Scene<AppState> for PauseOverlayScene {
             disable_cursor();
             return SceneAction::Switch("planet_flight".to_string());
         }
-        if switch_to_solar.clicked() {
-            disable_cursor();
-            return SceneAction::Switch("solar_orbit".to_string());
+        if exit.clicked() {
+            request_exit();
+            return SceneAction::None;
         }
 
         // Control reference card

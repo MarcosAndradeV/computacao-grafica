@@ -5,10 +5,6 @@ flight_physics = {
     boost_multiplier = 1.65
 }
 
-solar_system = {
-    rotation_speed = 0.8,
-}
-
 // --- Top HUD Labels ---
 scene_info = {
     top = 16,
@@ -214,7 +210,7 @@ btn_planet = {
     color = "white",
 }
 
-btn_solar = {
+btn_exit = {
     width = 220,
     height = 42,
     bg = 0x48325CFF,

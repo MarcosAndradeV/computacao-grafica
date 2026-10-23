@@ -214,7 +214,7 @@ impl Scene<AppState> for PlanetFlightScene {
         SceneAction::None
     }
 
-    fn draw_3d(&mut self, _state: &AppState) {
+    fn draw_3d(&mut self, _state: &mut AppState) {
         draw_3d(self.camera, |d3| {
             // 1. Draw Planetary Terrain, Runway, Ocean, and Sky Horizon (batch-safe)
             self.terrain
