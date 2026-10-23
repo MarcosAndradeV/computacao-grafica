@@ -32,9 +32,9 @@ void desenharGeometriaNave() {
 
         // Asa esquerda
         rlColor3f(0.9f, 0.2f, 0.2f);
-        rlVertex3f(-0.5f, -0.6f, 0.0f);
-        rlVertex3f(-0.8f, -0.8f, 0.0f);
         rlVertex3f(-0.3f, -0.2f, 0.0f);
+        rlVertex3f(-0.8f, -0.8f, 0.0f);
+        rlVertex3f(-0.5f, -0.6f, 0.0f);
 
         // Asa direita
         rlVertex3f(0.5f, -0.6f, 0.0f);
