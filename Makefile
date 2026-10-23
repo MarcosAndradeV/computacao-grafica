@@ -1,5 +1,8 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -O2 -std=c++17
+CARGO = cargo
+CARGO_FLAGS = --release
+CP = cp
 
 SRC_DIR = src
 
@@ -49,13 +52,21 @@ endif
 SDL_CXXFLAGS = $(CXXFLAGS) $(SDL_PKG_C)
 
 # -------------------------------------------------------------
+# 4. Configuração de Flags para Rust Raylib
+# -------------------------------------------------------------
+RAYLIB_RS_TARGET = main_raylib_rs
+RAYLIB_RS_SRCS   = $(SRC_DIR)/main_raylib.rs
+CARGO_TARGET = target
+
+# -------------------------------------------------------------
 # Regras de Construção
 # -------------------------------------------------------------
-all: $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET)
+all: $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET) $(RAYLIB_RS_TARGET)
 
 # Alvos individuais
 glut: $(GLUT_TARGET)
 raylib: $(RAYLIB_TARGET)
+raylib-rs: $(RAYLIB_RS_TARGET)
 sdl: $(SDL_TARGET)
 
 $(GLUT_TARGET): $(GLUT_SRCS)
@@ -67,6 +78,10 @@ $(RAYLIB_TARGET): $(RAYLIB_SRCS)
 $(SDL_TARGET): $(SDL_SRCS)
 	$(CXX) $(SDL_CXXFLAGS) -o $@ $^ $(SDL_LIBS)
 
+$(RAYLIB_RS_TARGET): $(RAYLIB_RS_SRCS)
+	$(CARGO) build $(CARGO_FLAGS)
+	$(CP) $(CARGO_TARGET)/release/$(RAYLIB_RS_TARGET) $(RAYLIB_RS_TARGET)
+
 # Regras de Execução
 run-glut: $(GLUT_TARGET)
 	./$(GLUT_TARGET)
@@ -77,7 +92,10 @@ run-raylib: $(RAYLIB_TARGET)
 run-sdl: $(SDL_TARGET)
 	./$(SDL_TARGET)
 
-clean:
-	rm -f $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET)
+run-raylib-rs: $(RAYLIB_RS_TARGET)
+	./$(RAYLIB_RS_TARGET)
 
-.PHONY: all clean glut raylib sdl run-glut run-raylib run-sdl
+clean:
+	rm -f $(GLUT_TARGET) $(RAYLIB_TARGET) $(SDL_TARGET) $(RAYLIB_RS_TARGET) $(CARGO_TARGET)
+
+.PHONY: all clean glut raylib sdl run-glut run-raylib run-sdl run-raylib-rs raylib-rs

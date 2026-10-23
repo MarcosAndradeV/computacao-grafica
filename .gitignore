@@ -4,3 +4,9 @@ target/
 main_glut
 main_raylib
 main_sdl
+
+
+# Added by cargo
+
+/target
+main_raylib_rs
