@@ -17,10 +17,13 @@
 
 #include "core/entidades.h"
 
-// Desenha a malha triangular 3D da nave espacial em coordenadas de objeto (Local Space)
+// Desenha a malha triangular 3D da nave em coordenadas de objeto (Local Space).
+// `tAnim` é a fase de animação (pulsação das chamas); `acelerando` e `turbo`
+// aumentam o comprimento e a cor das chamas das turbinas.
 void DesenharGeometriaNave3D(float tAnim, bool acelerando, bool turbo);
 
-// Aplica a matriz composta T * R * S e renderiza um alvo 3D procedural
+// Aplica a matriz composta T * R * S e renderiza um alvo 3D procedural.
+// `tAnim` é a fase de animação e `id` defasa a pulsação de cada alvo.
 void DesenharAlvo3D(const Alvo3D &alvo, float tAnim, int id);
 
 #endif // MODELOS_3D_H

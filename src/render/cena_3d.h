@@ -15,7 +15,8 @@
 
 #include "core/entidades.h"
 
-// Executa o passe de renderização 3D completo sob a perspectiva de `jogo.camera`
+// Executa o passe de renderização 3D completo, vendo a cena pela câmera do jogo
+// (já com o tremor do quadro, via `ObterCameraRender`)
 void RenderizarMundo3D(const JogoEstado &jogo);
 
 #endif // CENA_3D_H

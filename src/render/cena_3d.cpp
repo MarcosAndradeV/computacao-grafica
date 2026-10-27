@@ -3,9 +3,9 @@
 // Módulo: src/render/cena_3d.cpp
 //
 // Descrição:
-//   Implementa o passe de renderização do Mundo 3D. Demonstra a montagem da
-//   cena tridimensional combinando objetos estáticos, objetos dinâmicos e o
-//   pipeline de transformação T * Ry * Rx * Rz * S da nave do jogador.
+//   Passe de renderização do mundo 3D: monta a cena combinando objetos
+//   estáticos (estrelas, grade, cúpula, anéis) e dinâmicos (alvos, lasers,
+//   nave, partículas), cada um isolado na pilha de matrizes.
 // ============================================================================
 
 #include "render/cena_3d.h"
@@ -15,45 +15,64 @@
 
 #include <cmath>
 
-void RenderizarMundo3D(const JogoEstado &jogo) {
-    // BeginMode3D carrega a Matriz de Projeção Perspectiva e a Matriz de Visualização (Camera3D)
-    BeginMode3D(jogo.camera);
-    rlDisableBackfaceCulling(); // Exibe ambas as faces dos triângulos da nave durante manobras
+// Cúpula que delimita a arena. Quase invisível no centro; acende em azul ao se
+// aproximar da borda e fica vermelha perto do limite.
+static void DesenharCupulaFronteira(const JogoEstado &jogo) {
+    float inicio = Config::BORDA_INICIO_BRILHO;
+    float proximidade = Clamp((FracaoRaioMundo(jogo.nave) - inicio) / (1.0f - inicio), 0.0f, 1.0f);
 
-    // 1. Campo Estelar 3D com cintilação senoidal
+    unsigned char alpha = (unsigned char)(25 + (int)(proximidade * 155));
+    Color cor = (proximidade > 0.75f) ? Color{255, 60, 60, alpha} : Color{0, 160, 255, alpha};
+
+    // 48 subdivisões: com menos, a esfera aparece como uma rede poligonal grosseira
+    DrawSphereWires(Vector3{0, 0, 0}, Config::RAIO_MUNDO, 48, 48, cor);
+}
+
+void RenderizarMundo3D(const JogoEstado &jogo) {
+    // BeginMode3D carrega a projeção perspectiva e a matriz de visualização (LookAt).
+    // A câmera de desenho inclui o tremor do quadro.
+    BeginMode3D(ObterCameraRender(jogo));
+    rlDisableBackfaceCulling();  // A nave é uma malha aberta: precisa mostrar as duas faces
+
+    // 1. Campo estelar com cintilação senoidal
     for (const auto &est : jogo.estrelas) {
-        float pulso = 0.8f + 0.2f * std::sin(jogo.tempoAnimacao * 2.0f + est.faseBrilho);
-        DrawCube(est.pos, est.tamanho * pulso, est.tamanho * pulso, est.tamanho * pulso, est.cor);
+        float pulso = 0.8f + 0.2f * std::sin(jogo.faseAnimacao * 2.0f + est.faseBrilho);
+        float lado  = est.tamanho * pulso;
+        DrawCube(est.pos, lado, lado, lado, est.cor);
     }
 
-    // 2. Grade de Referência Espacial Holográfica (Transladada para o plano Y = -16.0)
+    // 2. Grade de referência (plano Y = -80) para dar noção de profundidade
     rlPushMatrix();
-    rlTranslatef(0.0f, -16.0f, 0.0f);
-    DrawGrid(50, 2.5f);
+    rlTranslatef(0.0f, -80.0f, 0.0f);
+    DrawGrid(140, 4.0f);
     rlPopMatrix();
 
-    // Esfera Wireframe demarcando a fronteira do volume de combate
-    DrawSphereWires((Vector3){0, 0, 0}, Config::RAIO_MUNDO, 16, 16, (Color){20, 60, 100, 70});
+    // 3. Cúpula da arena
+    DesenharCupulaFronteira(jogo);
 
-    // 3. Anéis de Checkpoint Espaciais
+    // 4. Anéis de checkpoint
+    // O cilindro do raylib tem o eixo ao longo de Y. Para ficar em pé, como um
+    // portão, giramos 90° em Z (eixo Y -> -X) e depois `rotY` em Y alinha esse
+    // eixo à direção radial. Matriz resultante: T · Ry(rotY) · Rz(90°).
     for (const auto &anel : jogo.aneis) {
         rlPushMatrix();
         rlTranslatef(anel.pos.x, anel.pos.y, anel.pos.z);
         rlRotatef(anel.rotY, 0.0f, 1.0f, 0.0f);
-        Color cAnel = anel.coletado ? DARKGRAY : (Color){0, 240, 255, 220};
-        DrawCylinderWires((Vector3){0, 0, 0}, anel.raio, anel.raio, 0.35f, 24, cAnel);
-        DrawCylinderWires((Vector3){0, 0, 0}, anel.raio * 0.94f, anel.raio * 0.94f, 0.15f, 24, ColorAlpha(cAnel, 0.4f));
+        rlRotatef(90.0f, 0.0f, 0.0f, 1.0f);
+        Color cAnel = anel.coletado ? DARKGRAY : Color{0, 240, 255, 220};
+        DrawCylinderWires(Vector3{0, 0, 0}, anel.raio, anel.raio, 0.35f, 24, cAnel);
+        DrawCylinderWires(Vector3{0, 0, 0}, anel.raio * 0.94f, anel.raio * 0.94f, 0.15f, 24, ColorAlpha(cAnel, 0.4f));
         rlPopMatrix();
     }
 
-    // 4. Alvos Tridimensionais (Transformações Compostas T * R * S em modelos_3d.cpp)
+    // 5. Alvos (transformação composta T·R·S em modelos_3d.cpp)
     for (size_t i = 0; i < jogo.alvos.size(); ++i) {
         if (jogo.alvos[i].ativo) {
-            DesenharAlvo3D(jogo.alvos[i], jogo.tempoAnimacao, (int)i);
+            DesenharAlvo3D(jogo.alvos[i], jogo.faseAnimacao, (int)i);
         }
     }
 
-    // 5. Feixes de Laser 3D (Cilindros concêntricos para efeito de brilho/glow)
+    // 6. Lasers: dois cilindros concêntricos simulam o brilho (glow)
     for (const auto &t : jogo.tiros) {
         if (!t.ativo)
             continue;
@@ -62,22 +81,22 @@ void RenderizarMundo3D(const JogoEstado &jogo) {
         DrawCylinderEx(t.pos, fim, 0.20f, 0.20f, 6, ColorAlpha(ORANGE, 0.45f));
     }
 
-    // 6. Nave do Jogador (Oculta apenas na câmera em 1ª Pessoa / Cockpit)
+    // 7. Nave (oculta na câmera de cockpit, que fica dentro dela)
     if (jogo.modoCamera != ModoCamera::Cockpit) {
         rlPushMatrix();
 
-        // Pipeline de Transformação Geométrica da Nave: M = T * Ry * Rx * Rz * S
+        // M = T · Ry(yaw) · Rx(-pitch) · Rz(roll) · S
         rlTranslatef(jogo.nave.pos.x, jogo.nave.pos.y, jogo.nave.pos.z);
         rlRotatef(jogo.nave.yaw, 0.0f, 1.0f, 0.0f);
         rlRotatef(-jogo.nave.pitch, 1.0f, 0.0f, 0.0f);
         rlRotatef(jogo.nave.roll, 0.0f, 0.0f, 1.0f);
         rlScalef(jogo.nave.escala, jogo.nave.escala, jogo.nave.escala);
 
-        DesenharGeometriaNave3D(jogo.tempoAnimacao, jogo.nave.acelerando, jogo.nave.turbo);
+        DesenharGeometriaNave3D(jogo.faseAnimacao, jogo.nave.acelerando, jogo.nave.turbo);
         rlPopMatrix();
     }
 
-    // 7. Sistema de Partículas Volumétricas 3D
+    // 8. Partículas de explosão, com fade-out proporcional à vida restante
     for (const auto &p : jogo.particulas) {
         if (!p.ativo)
             continue;
@@ -87,11 +106,11 @@ void RenderizarMundo3D(const JogoEstado &jogo) {
         rlRotatef(p.rot.y, 0.0f, 1.0f, 0.0f);
         rlRotatef(p.rot.z, 0.0f, 0.0f, 1.0f);
 
-        float alpha = p.vida / p.vidaMax;
-        Color cor   = ColorAlpha(p.cor, alpha);
-        DrawCubeWires((Vector3){0, 0, 0}, p.tamanho, p.tamanho, p.tamanho, cor);
+        Color cor = ColorAlpha(p.cor, p.vida / p.vidaMax);
+        DrawCubeWires(Vector3{0, 0, 0}, p.tamanho, p.tamanho, p.tamanho, cor);
         rlPopMatrix();
     }
 
+    rlEnableBackfaceCulling();  // Restaura o estado padrão do OpenGL
     EndMode3D();
 }

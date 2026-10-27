@@ -1,53 +1,42 @@
 // ============================================================================
-// Computacao Grafica - Space Combat 3D
-// Modulo: src/input/input.h
+// Computação Gráfica - Space Combat 3D
+// Módulo: src/input/input.h
 //
-// Descricao:
-//   Gerenciamento unificado de perifericos de entrada (Teclado, Mouse e Gamepad).
-//   Isola a leitura de hardware, zonas mortas (deadzones), sensibilidade do
-//   mouse e mapeamento de comandos para a simulacao de voo espacial e combate.
+// Descrição:
+//   Leitura unificada de periféricos (teclado, mouse e gamepad). O voo é
+//   controlado por teclado/gamepad; o mouse só atira (botão esquerdo) e
+//   aciona o nitro (botão direito). O resultado é um `ComandosEntrada`
+//   normalizado, que desacopla a física do hardware.
 // ============================================================================
 
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "core/entidades.h"
-
-// Estrutura com os comandos normalizados resultantes de todas as entradas
+// Comandos normalizados resultantes de todas as fontes de entrada
 struct ComandosEntrada {
-    float arfagem;          // Pitch: [-1.0f .. +1.0f] (Nariz sobe/desce no eixo local X)
-    float guinada;          // Yaw:   [-1.0f .. +1.0f] (Vira esquerda/direita no eixo Y)
-    float rolagem;          // Roll:  [-1.0f .. +1.0f] (Inclinacao manual das asas no eixo Z)
-    float aceleracao;       // Throttle: -1.0f (Freio), 0.0f (Cruzeiro), +1.0f (Turbo)
+    float arfagem = 0.0f;     // Pitch: [-1, +1] (nariz sobe/desce)
+    float guinada = 0.0f;     // Yaw:   [-1, +1] (esquerda = +1)
+    float rolagem = 0.0f;     // Roll:  [-1, +1] (inclinação manual das asas)
+    float aceleracao = 0.0f;  // -1 = freio, 0 = cruzeiro, +1 = turbo (turbo vence freio)
 
-    bool atirar;            // Disparo instantaneo dos canhoes laser (single click)
-    bool atirarContinuo;    // Disparo continuo ao segurar botao
-    bool trocarCamera;      // Alternancia do modo de visualizacao (Chase/Cockpit/Orbital)
-    bool inverterPitch;     // Alternar inversao do eixo vertical
-    bool alternarHUD;       // Exibir/ocultar painel de CG
-    bool reiniciarJogo;     // Reiniciar rodada
-    bool alternarMouse;     // Ativar/desativar captura do cursor do mouse
+    bool atirar = false;          // Clique/tecla recém-pressionado
+    bool atirarContinuo = false;  // Botão/tecla mantido
+    bool trocarCamera = false;
+    bool inverterPitch = false;
+    bool alternarHUD = false;
+    bool reiniciarJogo = false;
+    bool pausar = false;
 };
 
-// Inicializa o subsistema de entrada (captura do cursor do mouse para voo 3D)
-void InicializarEntradas();
+// Lê todas as fontes de entrada ativas e devolve os comandos do quadro
+ComandosEntrada LerComandosEntrada();
 
-// Processa todas as fontes de entrada ativas (Teclado, Mouse e Gamepad)
-ComandosEntrada LerComandosEntrada(const JogoEstado &jogo);
-
-// Aplica vibracao haptica no gamepad conectado (se disponivel)
+// Vibração háptica no gamepad conectado (sem efeito se não houver)
 void DispararVibracaoGamepad(float motorEsq, float motorDir, float duracaoSegundos);
 
-// Verifica se ha pelo menos um gamepad conectado e ativo
 bool GamepadConectado();
 
-// Retorna o identificador amigavel do gamepad conectado ou "NENHUM"
+// Nome do gamepad conectado ou "NENHUM"
 const char *ObterNomeGamepad();
-
-// Retorna se o cursor do mouse esta atualmente capturado (modo voo)
-bool MouseEstaCapturado();
-
-// Alterna o modo de captura do mouse (DisableCursor / EnableCursor)
-void AlternarCapturaMouse();
 
 #endif // INPUT_H

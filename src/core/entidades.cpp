@@ -3,14 +3,13 @@
 // Módulo: src/core/entidades.cpp
 //
 // Descrição:
-//   Implementa as funções matemáticas de orientação tridimensional, geração
-//   procedural em coordenadas esféricas/cilíndricas e inicialização do estado
-//   das entidades do mundo 3D.
+//   Funções matemáticas de orientação 3D, geração procedural (coordenadas
+//   esféricas/cilíndricas) e inicialização das entidades do mundo.
 //
-// Conceitos de CG Relacionados:
-//   - Composição de Matrizes de Rotação 3D (R = Rz(roll) * Rx(-pitch) * Ry(yaw))
-//   - Transformação de vetores da Base Canônica Local para o Espaço do Mundo
-//   - Conversão de Coordenadas Esféricas (r, theta, phi) para Cartesianas (x, y, z)
+// Conceitos de CG relacionados:
+//   - Composição de matrizes de rotação 3D
+//   - Conversão de coordenadas esféricas (r, θ, φ) para cartesianas (x, y, z)
+//   - Interseção segmento × esfera (ponto mais próximo sobre o segmento)
 // ============================================================================
 
 #include "core/entidades.h"
@@ -20,44 +19,82 @@
 #include <cstdlib>
 
 // ----------------------------------------------------------------------------
-// FUNÇÕES AUXILIARES DE MATEMÁTICA VETORIAL E COORDENADAS ESFÉRICAS
+// MATEMÁTICA AUXILIAR
 // ----------------------------------------------------------------------------
 
 float AleatorioFloat(float minVal, float maxVal) {
     return minVal + ((float)std::rand() / (float)RAND_MAX) * (maxVal - minVal);
 }
 
-// Converte coordenadas esféricas aleatórias (azimute theta e elevação phi)
-// em um vetor cartesiano 3D de magnitude `intensidade`:
-//   x = r * cos(phi) * cos(theta)
-//   y = r * sin(phi)
-//   z = r * cos(phi) * sin(theta)
+// Esféricas -> cartesianas, com azimute θ e elevação φ:
+//   x = r·cos(φ)·cos(θ)   y = r·sin(φ)   z = r·cos(φ)·sin(θ)
 Vector3 VetorAleatorio3D(float intensidade) {
     float theta = AleatorioFloat(0.0f, 2.0f * PI);
     float phi   = AleatorioFloat(-PI * 0.5f, PI * 0.5f);
-    return (Vector3){
+    return Vector3{
         intensidade * std::cos(phi) * std::cos(theta),
         intensidade * std::sin(phi),
         intensidade * std::cos(phi) * std::sin(theta)
     };
 }
 
-// Calcula os vetores diretores ortonormais da nave (Forward, Up e Right)
-// multiplicando os eixos canônicos locais (Z+, Y+, X+) pela Matriz de Rotação
-// Composta construída a partir dos ângulos de Euler (Yaw, Pitch, Roll).
+// Orientação da nave: transforma os eixos locais (Z+ frente, Y+ cima, X+ direita)
+// pela matriz de rotação composta dos ângulos de Euler.
+//
+// Nota sobre convenções (as duas notações descrevem a MESMA transformação):
+//   - O raymath usa vetores-linha: MatrixMultiply(A, B) aplica A primeiro e depois B.
+//     Aqui: Rz(roll), depois Rx(-pitch), depois Ry(yaw).
+//   - O OpenGL/rlgl usa vetores-colunas: a matriz M = T·Ry·Rx·Rz·S aplica Rz primeiro.
+//     É a ordem das chamadas rlRotatef em cena_3d.cpp e a fórmula exibida no HUD.
 void CalcularOrientacaoNave(const Nave3D &nave, Vector3 &outFwd, Vector3 &outUp, Vector3 &outRight) {
     Matrix matRot = MatrixMultiply(
         MatrixRotateZ(nave.roll * DEG2RAD),
         MatrixMultiply(MatrixRotateX(-nave.pitch * DEG2RAD), MatrixRotateY(nave.yaw * DEG2RAD))
     );
 
-    outFwd   = Vector3Normalize(Vector3Transform((Vector3){0.0f, 0.0f, 1.0f}, matRot));
-    outUp    = Vector3Normalize(Vector3Transform((Vector3){0.0f, 1.0f, 0.0f}, matRot));
-    outRight = Vector3Normalize(Vector3Transform((Vector3){1.0f, 0.0f, 0.0f}, matRot));
+    outFwd   = Vector3Normalize(Vector3Transform(Vector3{0.0f, 0.0f, 1.0f}, matRot));
+    outUp    = Vector3Normalize(Vector3Transform(Vector3{0.0f, 1.0f, 0.0f}, matRot));
+    outRight = Vector3Normalize(Vector3Transform(Vector3{1.0f, 0.0f, 0.0f}, matRot));
+}
+
+Vector3 ObterFrenteNave(const Nave3D &nave) {
+    Vector3 frente, cima, direita;
+    CalcularOrientacaoNave(nave, frente, cima, direita);
+    return frente;
+}
+
+float FatorSuavizacao(float k, float dt) {
+    return 1.0f - std::exp(-k * dt);
+}
+
+float FracaoRaioMundo(const Nave3D &nave) {
+    return Vector3Length(nave.pos) / Config::RAIO_MUNDO;
+}
+
+// Projeta o centro da esfera sobre o segmento (parâmetro t limitado a [0, 1]) e
+// compara a distância ao ponto mais próximo com o raio.
+bool SegmentoInterceptaEsfera(Vector3 a, Vector3 b, Vector3 centro, float raio) {
+    Vector3 ab = Vector3Subtract(b, a);
+    float comprimentoQuadrado = Vector3DotProduct(ab, ab);
+
+    float t = 0.0f;
+    if (comprimentoQuadrado > 1e-8f) {
+        t = Clamp(Vector3DotProduct(Vector3Subtract(centro, a), ab) / comprimentoQuadrado, 0.0f, 1.0f);
+    }
+
+    Vector3 maisProximo = Vector3Add(a, Vector3Scale(ab, t));
+    return Vector3DistanceSqr(maisProximo, centro) < raio * raio;
+}
+
+Camera3D ObterCameraRender(const JogoEstado &jogo) {
+    Camera3D cam = jogo.camera;
+    cam.position = Vector3Add(cam.position, jogo.tremorCamera);
+    cam.target   = Vector3Add(cam.target, jogo.tremorCamera);
+    return cam;
 }
 
 // ----------------------------------------------------------------------------
-// INICIALIZAÇÃO PROCEDURAL DO AMBIENTE E ENTIDADES 3D
+// INICIALIZAÇÃO PROCEDURAL DO MUNDO
 // ----------------------------------------------------------------------------
 
 void InicializarEstrelas(JogoEstado &jogo) {
@@ -65,8 +102,8 @@ void InicializarEstrelas(JogoEstado &jogo) {
     jogo.estrelas.reserve(Config::TOTAL_ESTRELAS);
 
     for (int i = 0; i < Config::TOTAL_ESTRELAS; ++i) {
-        // Distribui as estrelas em uma casca esférica com raio entre 80 e 180 unidades
-        float r     = AleatorioFloat(80.0f, 180.0f);
+        // Casca esférica distante (350 a 650 unidades), além da cúpula da arena
+        float r     = AleatorioFloat(350.0f, 650.0f);
         float theta = AleatorioFloat(0.0f, 2.0f * PI);
         float phi   = AleatorioFloat(-PI * 0.48f, PI * 0.48f);
 
@@ -77,66 +114,50 @@ void InicializarEstrelas(JogoEstado &jogo) {
         };
 
         Color cor = WHITE;
-        int tipoCor = std::rand() % 5;
-        if (tipoCor == 0)
-            cor = SKYBLUE;
-        else if (tipoCor == 1)
-            cor = (Color){200, 220, 255, 255};
-        else if (tipoCor == 2)
-            cor = (Color){255, 230, 180, 255};
-        else if (tipoCor == 3)
-            cor = (Color){255, 180, 180, 255};
+        switch (std::rand() % 5) {
+        case 0: cor = SKYBLUE; break;
+        case 1: cor = Color{200, 220, 255, 255}; break;
+        case 2: cor = Color{255, 230, 180, 255}; break;
+        case 3: cor = Color{255, 180, 180, 255}; break;
+        default: break;
+        }
 
-        jogo.estrelas.push_back({
-            pos,
-            cor,
-            AleatorioFloat(0.4f, 1.2f),
-            AleatorioFloat(0.0f, 6.28f)
-        });
+        jogo.estrelas.push_back({pos, cor, AleatorioFloat(0.6f, 1.6f), AleatorioFloat(0.0f, 2.0f * PI)});
     }
 }
 
 void InicializarAlvos(JogoEstado &jogo) {
     jogo.alvos.clear();
 
-    // A quantidade de alvos escala progressivamente a cada onda concluída
-    const int qtd = 8 + (jogo.ondaAtual - 1) * 2;
+    // Cada onda concluída acrescenta 3 alvos
+    const int qtd = 12 + (jogo.ondaAtual - 1) * 3;
     jogo.alvos.reserve(qtd);
 
     for (int i = 0; i < qtd; ++i) {
         Alvo3D alvo;
 
-        // Distribuição em coordenadas cilíndricas (ângulo, raio, altura Y)
-        float angulo = ((float)i / (float)qtd) * 2.0f * PI + AleatorioFloat(-0.2f, 0.2f);
-        float dist   = AleatorioFloat(18.0f, 42.0f);
-        float altura = AleatorioFloat(-8.0f, 14.0f);
+        // Posição em coordenadas esféricas: azimute espalhado uniformemente (com
+        // pequeno ruído) e elevação limitada para evitar alvos muito baixos.
+        float theta    = ((float)i / (float)qtd) * 2.0f * PI + AleatorioFloat(-0.25f, 0.25f);
+        float phi      = AleatorioFloat(-PI * 0.25f, PI * 0.35f);
+        float raioDist = AleatorioFloat(50.0f, 175.0f);
 
-        alvo.pos = (Vector3){
-            std::cos(angulo) * dist,
-            altura,
-            std::sin(angulo) * dist
+        alvo.pos = Vector3{
+            raioDist * std::cos(phi) * std::cos(theta),
+            raioDist * std::sin(phi) + AleatorioFloat(5.0f, 35.0f),  // Deslocamento para cima
+            raioDist * std::cos(phi) * std::sin(theta)
         };
 
-        // Orientação inicial e velocidades angulares independentes nos 3 eixos
-        alvo.rotAngulo = (Vector3){
-            AleatorioFloat(0.0f, 360.0f),
-            AleatorioFloat(0.0f, 360.0f),
-            AleatorioFloat(0.0f, 360.0f)
-        };
-        alvo.rotVel = (Vector3){
-            AleatorioFloat(-45.0f, 45.0f),
-            AleatorioFloat(40.0f, 90.0f),
-            AleatorioFloat(-30.0f, 30.0f)
-        };
-        alvo.escalaBase = AleatorioFloat(1.2f, 2.0f);
+        alvo.rotAngulo = Vector3{AleatorioFloat(0.0f, 360.0f), AleatorioFloat(0.0f, 360.0f), AleatorioFloat(0.0f, 360.0f)};
+        alvo.rotVel    = Vector3{AleatorioFloat(-45.0f, 45.0f), AleatorioFloat(40.0f, 90.0f), AleatorioFloat(-30.0f, 30.0f)};
+        alvo.escalaBase = AleatorioFloat(1.6f, 2.6f);
         alvo.tipo       = static_cast<TipoAlvo>(i % 3);
 
-        if (alvo.tipo == TipoAlvo::DroneSentinela)
-            alvo.cor = (Color){255, 80, 80, 255};   // Vermelho Neon
-        else if (alvo.tipo == TipoAlvo::AsteroideCristalino)
-            alvo.cor = (Color){60, 255, 160, 255};  // Verde Esmeralda
-        else
-            alvo.cor = (Color){255, 215, 0, 255};   // Dourado
+        switch (alvo.tipo) {
+        case TipoAlvo::DroneSentinela:      alvo.cor = Color{255, 80, 80, 255};  break;  // Vermelho neon
+        case TipoAlvo::AsteroideCristalino: alvo.cor = Color{60, 255, 160, 255}; break;  // Verde esmeralda
+        case TipoAlvo::PrismaEnergia:       alvo.cor = Color{255, 215, 0, 255};  break;  // Dourado
+        }
 
         alvo.ativo = true;
         jogo.alvos.push_back(alvo);
@@ -149,43 +170,45 @@ void InicializarAneis(JogoEstado &jogo) {
 
     for (int i = 0; i < Config::TOTAL_ANEIS; ++i) {
         float ang  = ((float)i / (float)Config::TOTAL_ANEIS) * 2.0f * PI;
-        float dist = 28.0f;
+        float dist = AleatorioFloat(85.0f, 150.0f);
+        float alt  = AleatorioFloat(10.0f, 70.0f);
 
-        jogo.aneis.push_back({
-            (Vector3){std::cos(ang) * dist, AleatorioFloat(2.0f, 8.0f), std::sin(ang) * dist},
-            ang * RAD2DEG + 90.0f,
-            4.0f,
-            false
-        });
+        AnelCheckpoint anel;
+        anel.pos      = Vector3{std::cos(ang) * dist, alt, std::sin(ang) * dist};
+        anel.normal   = Vector3{std::cos(ang), 0.0f, std::sin(ang)};  // Radial: o portão "olha" para o centro
+        anel.rotY     = -ang * RAD2DEG;  // Girar o eixo X do modelo até a direção radial (ver cena_3d.cpp)
+        anel.raio     = 6.5f;
+        anel.coletado = false;
+        jogo.aneis.push_back(anel);
     }
 }
 
 void ReiniciarJogoCompleto(JogoEstado &jogo) {
-    // Estado inicial da Nave no Espaço 3D
-    jogo.nave.pos             = (Vector3){0.0f, 0.0f, -15.0f};
-    jogo.nave.vel             = (Vector3){0.0f, 0.0f, 0.0f};
-    jogo.nave.pitch           = 0.0f;
-    jogo.nave.yaw             = 0.0f;
-    jogo.nave.roll            = 0.0f;
-    jogo.nave.rollDesejado    = 0.0f;
-    jogo.nave.escala          = 1.0f;
-    jogo.nave.velocidadeAtual = 8.0f;
-    jogo.nave.velocidadeMax   = 26.0f;
-    jogo.nave.aceleracao      = 14.0f;
-    jogo.nave.acelerando      = false;
-    jogo.nave.turbo           = false;
-    jogo.nave.freando         = false;
+    Nave3D &nave = jogo.nave;
+    nave.pos             = Vector3{0.0f, 0.0f, -15.0f};
+    nave.vel             = Vector3{0.0f, 0.0f, 0.0f};
+    nave.pitch           = 0.0f;
+    nave.yaw             = 0.0f;
+    nave.roll            = 0.0f;
+    nave.rollDesejado    = 0.0f;
+    nave.escala          = 1.0f;
+    nave.velocidadeAtual = Config::VELOCIDADE_INICIAL;
+    nave.acelerando      = false;
+    nave.turbo           = false;
+    nave.freando         = false;
 
-    // Configuração inicial da Câmera Sintética (Matriz de Visualização e Projeção)
-    jogo.camera.position   = (Vector3){0.0f, 6.0f, -28.0f};
-    jogo.camera.target     = (Vector3){0.0f, 0.0f, 0.0f};
-    jogo.camera.up         = (Vector3){0.0f, 1.0f, 0.0f};
+    // Câmera sintética inicial (Matriz de Visualização + Projeção Perspectiva)
+    jogo.camera.position   = Vector3{0.0f, 6.0f, -28.0f};
+    jogo.camera.target     = Vector3{0.0f, 0.0f, 0.0f};
+    jogo.camera.up         = Vector3{0.0f, 1.0f, 0.0f};
     jogo.camera.fovy       = Config::FOV_PADRAO;
     jogo.camera.projection = CAMERA_PERSPECTIVE;
+    jogo.tremorCamera      = Vector3{0.0f, 0.0f, 0.0f};
 
     jogo.pontuacao    = 0;
     jogo.ondaAtual    = 1;
     jogo.cameraTrauma = 0.0f;
+    jogo.cooldownTiro = 0.0f;
 
     jogo.tiros.clear();
     jogo.particulas.clear();

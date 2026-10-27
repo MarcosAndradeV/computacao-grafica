@@ -3,14 +3,16 @@
 // Módulo: src/core/entidades.h
 //
 // Descrição:
-//   Define todas as estruturas de dados (entidades geométricas 3D), enumerações,
-//   constantes de configuração espacial e a estrutura central `JogoEstado` que
-//   encapsula o estado completo da simulação sem variáveis globais soltas.
+//   Define as estruturas de dados das entidades 3D, as constantes de
+//   configuração (namespace `Config`), o estado completo da simulação
+//   (`JogoEstado`) e as funções matemáticas/de inicialização compartilhadas
+//   pelos demais módulos.
 //
-// Conceitos de CG Relacionados:
-//   - Representação de posição, velocidade e orientação no espaço 3D (R³)
+// Conceitos de CG relacionados:
+//   - Posição, velocidade e orientação no espaço 3D (R³)
 //   - Ângulos de Euler (Pitch / Arfagem, Yaw / Guinada, Roll / Rolagem)
-//   - Câmera Sintética 3D (Matriz de Visualização e Projeção Perspectiva)
+//   - Câmera sintética (Matriz de Visualização e Projeção Perspectiva)
+//   - Interseção segmento × esfera (colisão contínua)
 // ============================================================================
 
 #ifndef ENTIDADES_H
@@ -21,133 +23,190 @@
 #include <vector>
 
 // ----------------------------------------------------------------------------
-// CONSTANTES DO ESPAÇO DE COMBATE E CONFIGURAÇÕES GERAIS
+// CONSTANTES DE CONFIGURAÇÃO
+// Todos os "números mágicos" do jogo ficam aqui, agrupados por assunto.
 // ----------------------------------------------------------------------------
 
 namespace Config {
+    // --- Janela ---
     constexpr int LARGURA_INICIAL = 1024;
     constexpr int ALTURA_INICIAL  = 720;
     constexpr int FPS_ALVO        = 60;
+    constexpr float DT_MAXIMO     = 0.1f;   // Limite do passo de tempo (evita saltos ao arrastar a janela)
 
-    constexpr float FOV_PADRAO            = 60.0f;  // Campo de visão vertical (em graus) da Projeção Perspectiva
-    constexpr float RAIO_MUNDO            = 65.0f;  // Limite esférico do espaço de combate
-    constexpr float SENSIBILIDADE_VOO     = 95.0f;  // Velocidade angular de rotação (graus/s)
-    constexpr float LIMITE_PITCH          = 85.0f;  // Limite de arfagem para evitar Gimbal Lock
-    constexpr float VELOCIDADE_CRUZEIRO   = 12.0f;  // Velocidade padrão da nave
-    constexpr float VELOCIDADE_TURBO      = 28.0f;  // Velocidade com propulsão máxima (Shift)
-    constexpr float VELOCIDADE_FREIO      = 4.0f;   // Velocidade reduzida com freio espacial (Ctrl)
-    constexpr float VELOCIDADE_TIRO       = 75.0f;  // Velocidade de propagação dos feixes laser
-    constexpr float TEMPO_VIDA_TIRO       = 2.5f;   // Duração máxima de um projétil no espaço (s)
-    constexpr int   TOTAL_ESTRELAS        = 500;    // Quantidade de estrelas na esfera celeste
-    constexpr int   TOTAL_ANEIS           = 5;      // Quantidade de anéis de checkpoint
+    // --- Arena ---
+    constexpr float RAIO_MUNDO          = 220.0f; // Raio da cúpula que limita o espaço de combate
+    constexpr float BORDA_INICIO_BRILHO = 0.55f;  // Fração do raio a partir da qual a cúpula começa a acender
+    constexpr float BORDA_ALERTA        = 0.85f;  // Fração do raio que dispara o aviso de fronteira
+    constexpr int   TOTAL_ESTRELAS      = 750;
+    constexpr int   TOTAL_ANEIS         = 8;
+
+    // --- Voo da nave ---
+    constexpr float SENSIBILIDADE_VOO   = 95.0f;  // Velocidade angular de pitch/yaw (graus/s)
+    constexpr float LIMITE_PITCH        = 85.0f;  // Evita o "gimbal lock" nos polos
+    constexpr float BANKING_GUINADA     = 35.0f;  // Inclinação automática das asas ao virar (graus)
+    constexpr float ROLL_MANUAL         = 45.0f;  // Inclinação adicional com Q/E (graus)
+    constexpr float VELOCIDADE_CRUZEIRO = 14.0f;
+    constexpr float VELOCIDADE_TURBO    = 32.0f;
+    constexpr float VELOCIDADE_FREIO    = 5.0f;
+    constexpr float VELOCIDADE_INICIAL  = 8.0f;
+
+    // --- Suavização (taxas "k" de FatorSuavizacao: maior = resposta mais rápida) ---
+    constexpr float SUAVIZ_ROLL       = 8.0f;
+    constexpr float SUAVIZ_VELOCIDADE = 4.0f;
+    constexpr float SUAVIZ_CAM_POS    = 12.0f;
+    constexpr float SUAVIZ_CAM_ALVO   = 14.0f;
+    constexpr float SUAVIZ_CAM_UP     = 10.0f;
+    constexpr float SUAVIZ_CAM_ORBITAL = 8.0f;
+
+    // --- Câmeras (View Matrix) ---
+    constexpr float FOV_PADRAO           = 60.0f;  // Campo de visão vertical (graus)
+    constexpr float CAM_CHASE_DISTANCIA  = 7.5f;   // Atrás da nave
+    constexpr float CAM_CHASE_ALTURA     = 2.6f;   // Acima da nave
+    constexpr float CAM_CHASE_FOCO       = 15.0f;  // Ponto observado à frente da nave
+    constexpr float CAM_COCKPIT_FRENTE   = 0.3f;
+    constexpr float CAM_COCKPIT_ALTURA   = 0.35f;
+    constexpr float CAM_COCKPIT_FOCO     = 30.0f;
+    constexpr float CAM_ORBITAL_ALTURA   = 32.0f;
+    constexpr float CAM_ORBITAL_ATRAS    = 24.0f;
+
+    // --- Tremor de câmera (screen shake) ---
+    constexpr float TREMOR_AMPLITUDE   = 0.35f;
+    constexpr float TREMOR_DECAIMENTO  = 1.6f;   // Trauma perdido por segundo
+    constexpr float TREMOR_POR_TIRO    = 0.06f;
+    constexpr float TREMOR_POR_ALVO    = 0.35f;
+
+    // --- Armas ---
+    constexpr float VELOCIDADE_TIRO         = 95.0f;
+    constexpr float TEMPO_VIDA_TIRO         = 3.0f;
+    constexpr float CADENCIA_TIRO           = 0.16f;  // Intervalo entre disparos contínuos (s)
+    constexpr float CANHAO_AFASTAMENTO      = 1.85f;  // Distância lateral dos canhões (pontas das asas)
+    constexpr float CANHAO_AVANCO           = 0.4f;   // Canhões ligeiramente à frente do centro
+    // Distância (à frente da nave) em que os dois lasers se cruzam. A mira do HUD
+    // é projetada nesse mesmo ponto, por isso as duas constantes são uma só.
+    constexpr float DISTANCIA_CONVERGENCIA  = 45.0f;
+    constexpr float FATOR_COLISAO_ALVO      = 1.15f;  // Raio de colisão = escala do alvo × fator
+
+    // --- Pontuação ---
+    constexpr int PONTOS_ALVO = 100;
+    constexpr int PONTOS_ONDA = 500;
+    constexpr int PONTOS_ANEL = 200;
+
+    // --- Animação ---
+    constexpr float VEL_FASE_JOGO = 2.0f;  // Velocidade da fase de animação durante a partida
+    constexpr float VEL_FASE_MENU = 0.8f;  // ...e no menu (mais lenta)
 }
 
 // ----------------------------------------------------------------------------
-// ENUMERAÇÕES DE CÂMERA E TIPOS DE GEOMETRIA
+// ENUMERAÇÕES
 // ----------------------------------------------------------------------------
 
 // Modos da Matriz de Visualização (View Matrix - LookAt)
 enum class ModoCamera {
-    Chase = 0,   // 3ª Pessoa: Câmera de perseguição com interpolação inercial (Lerp)
-    Cockpit = 1, // 1ª Pessoa: Câmera posicionada no cockpit acompanhando o vetor Up da nave
-    Orbital = 2  // Tática: Câmera superior afastada para visualização global do espaço 3D
+    Chase,    // 3ª pessoa: câmera de perseguição com suavização inercial
+    Cockpit,  // 1ª pessoa: câmera no cockpit, acompanhando o vetor Up da nave
+    Orbital   // Tática: câmera elevada para visão global
 };
 
-// Tipos de geometria procedural dos alvos inimigos
+// Tipos de geometria procedural dos alvos
 enum class TipoAlvo {
-    DroneSentinela      = 0, // Cubo com núcleo esférico e anéis orbitais com rotações independentes
-    AsteroideCristalino = 1, // Cubos entrelaçados rotacionados a 45° nos eixos X e Z
-    PrismaEnergia       = 2  // Octaedro / Pirâmides duplas giratórias
+    DroneSentinela,       // Cubo com núcleo esférico e dois anéis orbitais
+    AsteroideCristalino,  // Cubos entrelaçados rotacionados a 45°
+    PrismaEnergia         // Pirâmides duplas giratórias
 };
 
 // ----------------------------------------------------------------------------
-// ESTRUTURAS DAS ENTIDADES 3D
+// ENTIDADES 3D
 // ----------------------------------------------------------------------------
 
-// Projétil disparado pelos canhões das pontas das asas da nave
+// Projétil laser disparado pelos canhões das asas
 struct Projetil3D {
-    Vector3 pos;  // Posição atual no espaço do mundo (World Space)
-    Vector3 dir;  // Vetor direção unitário de propagação
-    float vida;   // Tempo restante de existência (em segundos)
-    bool ativo;   // Indica se o projétil ainda existe na cena
+    Vector3 pos;  // Posição atual (espaço do mundo)
+    Vector3 dir;  // Direção unitária de propagação
+    float vida;   // Tempo restante (s)
+    bool ativo;
 };
 
-// Fragmento tridimensional gerado em explosões volumétricas
+// Fragmento de explosão
 struct Particula3D {
-    Vector3 pos;     // Posição 3D no mundo
-    Vector3 vel;     // Vetor velocidade linear 3D
-    Vector3 rot;     // Ângulos de Euler atuais (X, Y, Z) da partícula
-    Vector3 rotVel;  // Velocidade angular em cada eixo (graus/s)
-    float tamanho;   // Escala geométrica do fragmento
-    Color cor;       // Cor base do fragmento (com fade-out proporcional à vida)
-    float vida;      // Tempo restante de vida
-    float vidaMax;   // Tempo total inicial (usado para normalizar o canal Alpha)
-    bool ativo;      // Indica se a partícula está ativa
+    Vector3 pos;
+    Vector3 vel;
+    Vector3 rot;     // Ângulos de Euler atuais (graus)
+    Vector3 rotVel;  // Velocidade angular por eixo (graus/s)
+    float tamanho;
+    Color cor;
+    float vida;
+    float vidaMax;   // Vida inicial: normaliza o canal alpha no fade-out
+    bool ativo;
 };
 
-// Alvo espacial que sofre transformações compostas (T * R * S) a cada quadro
+// Alvo sujeito à transformação composta T * R * S a cada quadro
 struct Alvo3D {
-    Vector3 pos;        // Posição no espaço 3D (Translação T)
-    Vector3 rotAngulo;  // Ângulos de rotação acumulados nos eixos X, Y, Z (Rotação R)
-    Vector3 rotVel;     // Velocidade angular em cada eixo (graus/s)
-    float escalaBase;   // Fator de escala base antes da pulsação harmônica (Escala S)
-    Color cor;          // Cor primária da malha wireframe
-    TipoAlvo tipo;      // Tipo de modelo geométrico 3D
-    bool ativo;         // Indica se o alvo ainda não foi destruído
+    Vector3 pos;        // Translação (T)
+    Vector3 rotAngulo;  // Rotação acumulada em X, Y, Z (R)
+    Vector3 rotVel;     // Velocidade angular por eixo (graus/s)
+    float escalaBase;   // Escala antes da pulsação harmônica (S)
+    Color cor;
+    TipoAlvo tipo;
+    bool ativo;
 };
 
-// Anel de navegação espacial (Checkpoint)
+// Portão de navegação (checkpoint). O disco fica num plano vertical que contém
+// o eixo Y e é perpendicular à direção radial: a nave o "atravessa" voando
+// em direção à borda (ou voltando dela).
 struct AnelCheckpoint {
-    Vector3 pos;    // Posição central do anel no mundo
-    float rotY;     // Orientação angular ao redor do eixo Y (graus)
-    float raio;     // Raio de abertura do anel para detecção de passagem
-    bool coletado;  // Indica se a nave já atravessou este anel
+    Vector3 pos;      // Centro do anel
+    Vector3 normal;   // Normal do plano do anel (unitária, horizontal)
+    float rotY;       // Guinada que alinha o modelo à normal (graus)
+    float raio;       // Raio de abertura: a travessia só conta dentro dele
+    bool coletado;
 };
 
-// Ponto luminoso distante no fundo estelar (gerado em coordenadas esféricas)
+// Ponto luminoso distante do fundo estelar
 struct Estrela3D {
-    Vector3 pos;       // Posição cartesiana convertida a partir de (r, theta, phi)
-    Color cor;         // Tonalidade estelar (azul, branca, amarela, avermelhada)
-    float tamanho;     // Dimensão base do cubo estelar
-    float faseBrilho;  // Fase inicial (radianos) para cintilação senoidal
+    Vector3 pos;
+    Color cor;
+    float tamanho;
+    float faseBrilho;  // Fase inicial (rad) da cintilação senoidal
 };
 
-// Jogador: Nave espacial controlada com 6 graus de liberdade parciais (Pitch, Yaw, Roll + Translação)
+// Nave do jogador: translação 3D + três rotações de Euler (pitch, yaw, roll)
 struct Nave3D {
-    Vector3 pos;            // Posição atual no espaço do mundo (Translação)
-    Vector3 vel;            // Vetor velocidade resultante (Forward * velocidadeAtual)
-    float pitch;            // Arfagem: rotação em torno do eixo local X (nariz sobe/desce)
-    float yaw;              // Guinada: rotação em torno do eixo Y (vira para esquerda/direita)
-    float roll;             // Rolagem: rotação em torno do eixo longitudinal Z (inclinação das asas)
-    float rollDesejado;     // Ângulo alvo de rolagem para efeito de banking suave (Lerp)
-    float escala;           // Fator de escala uniforme da nave
-    float velocidadeAtual;  // Escalares de velocidade linear
-    float velocidadeMax;
-    float aceleracao;
-    bool acelerando;        // Estado visual das turbinas de plasma
-    bool turbo;             // Estado do pós-combustor (Shift pressionado)
-    bool freando;           // Estado do freio espacial (Ctrl pressionado)
+    Vector3 pos;
+    Vector3 vel;            // Frente × velocidadeAtual
+    float pitch;            // Arfagem: rotação em X (nariz sobe/desce)
+    float yaw;              // Guinada: rotação em Y (esquerda/direita)
+    float roll;             // Rolagem: rotação em Z (inclinação das asas)
+    float rollDesejado;     // Alvo do roll (banking suave via suavização)
+    float escala;
+    float velocidadeAtual;
+    bool acelerando;        // Turbinas em modo acelerado (efeito visual)
+    bool turbo;
+    bool freando;
 };
 
 // ----------------------------------------------------------------------------
-// ESTADO GLOBAL ENCAPSULADO DO JOGO
+// ESTADO DA SIMULAÇÃO
+// (O estado de menus/telas fica em `EstadoApp`, em core/estado.h)
 // ----------------------------------------------------------------------------
 
 struct JogoEstado {
     Nave3D nave;
-    Camera3D camera;
+    Camera3D camera;                  // Câmera "lógica" (sem tremor)
+    Vector3 tremorCamera = {0, 0, 0}; // Deslocamento de tremor, aplicado só na hora de desenhar
     ModoCamera modoCamera = ModoCamera::Chase;
 
-    bool inverterPitch = true;
+    bool inverterPitch = false;  // Padrão direto: W sobe o nariz
     bool mostrarHUD_CG = true;
 
     int pontuacao = 0;
     int ondaAtual = 1;
 
-    float tempoAnimacao      = 0.0f;
+    float faseAnimacao       = 0.0f;  // Fase acumulada usada em pulsações/cintilações (não é tempo real)
     float alertaTemporizador = 0.0f;
-    float cameraTrauma       = 0.0f; // Intensidade do Screen Shake na Matriz de Visualização
-    std::string alertaTexto  = "";
+    float cameraTrauma       = 0.0f;  // Intensidade do tremor (0..1)
+    float cooldownTiro       = 0.0f;  // Tempo até o próximo disparo contínuo
+    std::string alertaTexto;
 
     std::vector<Projetil3D> tiros;
     std::vector<Particula3D> particulas;
@@ -157,28 +216,44 @@ struct JogoEstado {
 };
 
 // ----------------------------------------------------------------------------
-// PROTÓTIPOS DE INICIALIZAÇÃO E MATEMÁTICA AUXILIAR (src/core/entidades.cpp)
+// MATEMÁTICA AUXILIAR (src/core/entidades.cpp)
 // ----------------------------------------------------------------------------
 
-// Gera um número em ponto flutuante pseudoaleatório no intervalo [minVal, maxVal]
+// Número pseudoaleatório em [minVal, maxVal]
 float AleatorioFloat(float minVal, float maxVal);
 
-// Gera um vetor 3D em direção aleatória utilizando coordenadas esféricas (theta, phi)
+// Vetor em direção aleatória (coordenadas esféricas) com módulo `intensidade`
 Vector3 VetorAleatorio3D(float intensidade);
 
-// Calcula a base ortonormal da nave (vetores Forward, Up e Right) a partir dos ângulos de Euler
+// Base ortonormal da nave (Forward, Up, Right) a partir dos ângulos de Euler
 void CalcularOrientacaoNave(const Nave3D &nave, Vector3 &outFwd, Vector3 &outUp, Vector3 &outRight);
 
-// Inicializa o campo estelar distribuído em uma casca esférica
+// Atalho para quem só precisa do vetor Forward
+Vector3 ObterFrenteNave(const Nave3D &nave);
+
+// Fator de interpolação independente do FPS: 1 - e^(-k·dt), sempre em [0, 1).
+// Usar no lugar de `k * dt` direto no Lerp, que ultrapassa o alvo quando dt é grande.
+float FatorSuavizacao(float k, float dt);
+
+// Distância da nave ao centro da arena, em frações de RAIO_MUNDO (1.0 = na cúpula)
+float FracaoRaioMundo(const Nave3D &nave);
+
+// O segmento [a, b] intercepta a esfera (centro, raio)? Evita o "tunneling":
+// um projétil rápido não atravessa o alvo entre dois quadros.
+bool SegmentoInterceptaEsfera(Vector3 a, Vector3 b, Vector3 centro, float raio);
+
+// Câmera usada para desenhar: a câmera lógica + o tremor do quadro
+Camera3D ObterCameraRender(const JogoEstado &jogo);
+
+// ----------------------------------------------------------------------------
+// INICIALIZAÇÃO
+// ----------------------------------------------------------------------------
+
 void InicializarEstrelas(JogoEstado &jogo);
-
-// Posiciona os alvos 3D da onda atual distribuídos cilindricamente/esfericamente na arena
 void InicializarAlvos(JogoEstado &jogo);
-
-// Posiciona os anéis de checkpoint ao redor da arena
 void InicializarAneis(JogoEstado &jogo);
 
-// Restaura a nave, câmera, placar e entidades do mundo para o estado inicial
+// Restaura nave, câmera, placar e mundo ao estado inicial de uma missão
 void ReiniciarJogoCompleto(JogoEstado &jogo);
 
 #endif // ENTIDADES_H
