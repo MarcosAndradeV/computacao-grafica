@@ -1,5 +1,5 @@
-main
-main_raylib
+space_combat
+build/
+vendor/
 *.o
 src/*.o
-main_3d

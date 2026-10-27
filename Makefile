@@ -1,47 +1,59 @@
-CXX = g++
+# ============================================================================
+# Makefile - Space Combat 3D (Computação Gráfica)
+# ============================================================================
+
+CXX      = g++
 CXXFLAGS = -Wall -Wextra -O2 -std=c++17
 
 SRC_DIR   = src
-TARGET_3D = main_3d
-TARGET_2D = main_raylib
+BUILD_DIR = build
+TARGET    = space_combat
 
-SRCS_3D   = $(SRC_DIR)/main_3d.cpp
-SRCS_2D   = $(SRC_DIR)/main_raylib.cpp
+SRCS = $(SRC_DIR)/main.cpp \
+       $(SRC_DIR)/core/entidades.cpp \
+       $(SRC_DIR)/fisica/logica.cpp \
+       $(SRC_DIR)/render/modelos_3d.cpp \
+       $(SRC_DIR)/render/cena_3d.cpp \
+       $(SRC_DIR)/render/hud.cpp
 
+OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+DEPS = $(SRC_DIR)/core/entidades.h \
+       $(SRC_DIR)/fisica/logica.h \
+       $(SRC_DIR)/render/modelos_3d.h \
+       $(SRC_DIR)/render/cena_3d.h \
+       $(SRC_DIR)/render/hud.h
+
+# Detecção automática do Raylib (pkg-config do sistema ou pasta vendor/local)
 RAYLIB_PKG_L = $(shell pkg-config --libs raylib 2>/dev/null)
 RAYLIB_PKG_C = $(shell pkg-config --cflags raylib 2>/dev/null)
 
-ifeq ($(strip $(RAYLIB_PKG_L)),)
-    LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+ifneq ($(wildcard vendor/raylib/lib/libraylib.a),)
+    RAYLIB_INC = -Ivendor/raylib/include
+    LIBS       = -Lvendor/raylib/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+else ifeq ($(strip $(RAYLIB_PKG_L)),)
+    RAYLIB_INC =
+    LIBS       = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 else
-    LIBS = $(RAYLIB_PKG_L) -lm
+    RAYLIB_INC = $(RAYLIB_PKG_C)
+    LIBS       = $(RAYLIB_PKG_L) -lm
 endif
-TARGET_CXXFLAGS = $(CXXFLAGS) $(RAYLIB_PKG_C)
 
-all: $(TARGET_3D) $(TARGET_2D)
+TARGET_CXXFLAGS = $(CXXFLAGS) $(RAYLIB_INC) -I$(SRC_DIR)
 
-$(TARGET_3D): $(SRCS_3D)
+# Regra padrão
+all: $(TARGET)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(TARGET_CXXFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJS)
 	$(CXX) $(TARGET_CXXFLAGS) -o $@ $^ $(LIBS)
 
-$(TARGET_2D): $(SRCS_2D)
-	$(CXX) $(TARGET_CXXFLAGS) -o $@ $^ $(LIBS)
-
-# Aliases
-3d: $(TARGET_3D)
-2d: $(TARGET_2D)
-main: $(TARGET_3D)
-raylib: $(TARGET_2D)
-
-run: $(TARGET_3D)
-	./$(TARGET_3D)
-
-run-3d: $(TARGET_3D)
-	./$(TARGET_3D)
-
-run-2d: $(TARGET_2D)
-	./$(TARGET_2D)
+run: $(TARGET)
+	./$(TARGET)
 
 clean:
-	rm -f $(TARGET_3D) $(TARGET_2D) main
+	rm -rf $(BUILD_DIR) $(TARGET)
 
-.PHONY: all run run-3d run-2d clean 3d 2d main raylib
+.PHONY: all run clean
