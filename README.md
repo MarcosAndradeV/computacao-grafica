@@ -44,7 +44,8 @@ computacao-grafica/
 
 ```mermaid
 flowchart LR
-    A["src/main.cpp<br/>Game Loop (dt)"] --> B["src/fisica/logica.cpp<br/>AtualizarJogo(jogo, dt)"]
+    A["src/main.cpp<br/>Game Loop (dt)"] --> I["src/input/input.cpp<br/>LerComandosEntrada(jogo)"]
+    I --> B["src/fisica/logica.cpp<br/>AtualizarJogo(jogo, dt)"]
     B --> C["src/render/cena_3d.cpp<br/>RenderizarMundo3D(jogo)"]
     C --> D["src/render/modelos_3d.cpp<br/>Nave (RL_TRIANGLES) & Alvos (T*R*S)"]
     C --> E["src/render/hud.cpp<br/>RenderizarHUD(jogo)"]
@@ -54,14 +55,15 @@ flowchart LR
 
 ## Módulos
 
-| Ordem | Arquivo | Conceito de Computação Gráfica |
+| Ordem | Arquivo | Conceito de Computação Gráfica e Arquitetura |
 |---|---|---|
-| **1º** | [`src/main.cpp`](src/main.cpp) | Configuração da janela OpenGL com Anti-Aliasing (`FLAG_MSAA_4X_HINT`), instanciação de `JogoEstado` e separação entre `AtualizarJogo`, `RenderizarMundo3D` e `RenderizarHUD`. |
+| **1º** | [`src/main.cpp`](src/main.cpp) | Configuração da janela OpenGL com Anti-Aliasing (`FLAG_MSAA_4X_HINT`), inicialização dos periféricos de entrada e game loop orquestrado. |
 | **2º** | [`src/core/entidades.h`](src/core/entidades.h)<br>[`src/core/entidades.cpp`](src/core/entidades.cpp) | Representação das entidades no $\mathbb{R}^3$, cálculo da base ortonormal da nave (`Forward`, `Up`, `Right`) multiplicando os eixos canônicos pela matriz composta $R = R_z(\text{roll}) \cdot R_x(-\text{pitch}) \cdot R_y(\text{yaw})$ em `CalcularOrientacaoNave`, e conversão de coordenadas esféricas $(r, \theta, \phi)$ para cartesianas $(x, y, z)$. |
-| **3º** | [`src/render/modelos_3d.cpp`](src/render/modelos_3d.cpp) | **Modelagem Poligonal Explícita:** construção da nave vértice a vértice com `rlBegin(RL_TRIANGLES)`, `rlVertex3f` e `rlColor3f`/`rlColor4f` (`DesenharGeometriaNave3D`).<br>**Transformações Hierárquicas:** aplicação de $M = T \cdot R_y \cdot R_x \cdot R_z \cdot S$ nos alvos (`DesenharAlvo3D`) e sub-rotações nos anéis orbitais com `rlPushMatrix()` e `rlPopMatrix()`. |
-| **4º** | [`src/render/cena_3d.cpp`](src/render/cena_3d.cpp) | Ativação da Matriz de Projeção Perspectiva e Matriz de Visualização (`BeginMode3D`), desativação de *backface culling* (`rlDisableBackfaceCulling`), posicionamento da nave no espaço do mundo e renderização das partículas volumétricas 3D. |
-| **5º** | [`src/fisica/logica.cpp`](src/fisica/logica.cpp) | Dinâmica de voo com ângulos de Euler (`pitch`, `yaw`, `roll`), amortecimento inercial (`Lerp`), detecção de colisão esférica (*Bounding Sphere*) e cálculo dos 3 modos de câmera (`Chase`, `Cockpit`, `Orbital`) com *Screen Shake*. |
-| **6º** | [`src/render/hud.cpp`](src/render/hud.cpp) | Projeção do espaço do mundo 3D para a tela (`GetWorldToScreen`) para desenhar o retículo de mira e os *brackets* dos alvos, usando produto escalar (`Vector3DotProduct`) para descartar alvos atrás da câmera. |
+| **3º** | [`src/input/input.h`](src/input/input.h)<br>[`src/input/input.cpp`](src/input/input.cpp) | **Subsistema de Entrada Unificado:** leitura desacoplada de Teclado, Mouse e Gamepad com calibração de zona morta (*deadzone*), sensibilidade do mouse, captura de cursor (`DisableCursor` / `EnableCursor`) e resposta tátil de vibração (*rumble*). |
+| **4º** | [`src/render/modelos_3d.cpp`](src/render/modelos_3d.cpp) | **Modelagem Poligonal Explícita:** construção da nave vértice a vértice com `rlBegin(RL_TRIANGLES)`, `rlVertex3f` e `rlColor3f`/`rlColor4f` (`DesenharGeometriaNave3D`).<br>**Transformações Hierárquicas:** aplicação de $M = T \cdot R_y \cdot R_x \cdot R_z \cdot S$ nos alvos (`DesenharAlvo3D`) e sub-rotações nos anéis orbitais com `rlPushMatrix()` e `rlPopMatrix()`. |
+| **5º** | [`src/render/cena_3d.cpp`](src/render/cena_3d.cpp) | Ativação da Matriz de Projeção Perspectiva e Matriz de Visualização (`BeginMode3D`), desativação de *backface culling* (`rlDisableBackfaceCulling`), posicionamento da nave no espaço do mundo e renderização das partículas volumétricas 3D. |
+| **6º** | [`src/fisica/logica.cpp`](src/fisica/logica.cpp) | Dinâmica de voo com ângulos de Euler (`pitch`, `yaw`, `roll`), amortecimento inercial (`Lerp`), detecção de colisão esférica (*Bounding Sphere*) e cálculo dos 3 modos de câmera (`Chase`, `Cockpit`, `Orbital`) com *Screen Shake*. |
+| **7º** | [`src/render/hud.cpp`](src/render/hud.cpp) | Projeção do espaço do mundo 3D para a tela (`GetWorldToScreen`) para desenhar o retículo de mira e os *brackets* dos alvos, usando produto escalar (`Vector3DotProduct`) para descartar alvos atrás da câmera. |
 
 ---
 
@@ -95,20 +97,21 @@ make clean
 
 ---
 
-## 🎮 Controles de Voo e Câmera
+## 🎮 Controles de Voo, Mouse e Gamepad
 
-| Ação | Teclas | Descrição Técnica |
-|---|---|---|
-| **Arfagem (Pitch)** | `W` / `S` ou `▲` / `▼` | Rotaciona o nariz da nave para cima/baixo em torno do eixo local $X$ (limitado a $\pm 85^\circ$ contra *Gimbal Lock*) |
-| **Guinada (Yaw)** | `A` / `D` ou `◀` / `▶` | Rotaciona a nave para a esquerda/direita no eixo $Y$ induzindo *banking* automático no eixo $Z$ |
-| **Rolagem (Roll)** | `Q` / `E` | Inclina manualmente as asas ao redor do eixo longitudinal $Z$ |
-| **Canhões Laser** | `ESPAÇO` ou `Botão Esquerdo do Mouse` | Dispara feixes duplos 3D a partir da posição transformada das pontas das asas |
-| **Turbo / Pós-combustor** | `SHIFT ESQUERDO` | Eleva a velocidade escalar de cruzeiro ($12 \to 28$) e expande a escala dos jatos de plasma |
-| **Freio Espacial** | `CTRL ESQUERDO` | Reduz a velocidade escalar ($12 \to 4$) para mira e manobras curtas |
-| **Alternar Câmera** | `C` ou `TAB` | Alterna entre **3ª Pessoa (Chase)**, **1ª Pessoa (Cockpit)** e **Tática (Orbital)** |
-| **Inverter Manche (Eixo Y)** | `I` | Alterna entre arfagem invertida (padrão de aviação) e direta |
-| **Painel Didático de CG** | `H` | Exibe ou oculta o painel inferior direito com a fórmula do pipeline e ângulos em tempo real |
-| **Reiniciar Simulação** | `R` | Restaura posição da nave, câmera, pontuação, ondas e anéis de checkpoint |
+| Ação | Teclado | Mouse | Gamepad (Xbox / PS / Genérico) | Descrição Técnica |
+|---|---|---|---|---|
+| **Arfagem (Pitch)** | `W` / `S` ou `▲` / `▼` | Mover Mouse verticalmente | **Analógico Esquerdo (Y)** ou D-Pad $\mathbf{\uparrow}$/$\mathbf{\downarrow}$ | Rotaciona o nariz da nave para cima/baixo em torno do eixo local $X$ (limitado a $\pm 85^\circ$ contra *Gimbal Lock*) |
+| **Guinada (Yaw)** | `A` / `D` ou `◀` / `▶` | Mover Mouse horizontalmente | **Analógico Esquerdo (X)** ou D-Pad $\mathbf{\leftarrow}$/$\mathbf{\rightarrow}$ | Rotaciona a nave para a esquerda/direita no eixo $Y$ induzindo *banking* dinâmico no eixo $Z$ |
+| **Rolagem Manual (Roll)** | `Q` / `E` | — | **Analógico Direito (X)** ou Bumpers `LB` / `RB` | Inclina manualmente as asas ao redor do eixo longitudinal $Z$ |
+| **Canhões Laser** | `ESPAÇO` | `Botão Esquerdo` | Botão `A` / `X` (Cross/Square) | Dispara feixes duplos 3D das pontas das asas com recuo e vibração háptica |
+| **Turbo / Pós-combustor**| `SHIFT ESQUERDO` | `Botão Direito` ou Scroll $\mathbf{\uparrow}$ | **Gatilho Direito (`RT`)** ou Botão `B` | Eleva a velocidade escalar de cruzeiro ($12 \to 28$) e expande a escala dos jatos de plasma |
+| **Freio Espacial** | `CTRL ESQUERDO` | Scroll $\mathbf{\downarrow}$ | **Gatilho Esquerdo (`LT`)** | Reduz a velocidade escalar ($12 \to 4$) para mira e manobras curtas |
+| **Alternar Câmera** | `C` ou `TAB` | `Botão do Meio` (Scroll click) | Botão `Y` / $\mathbf{\Delta}$ (Triangle) | Alterna entre **3ª Pessoa (Chase)**, **1ª Pessoa (Cockpit)** e **Tática (Orbital)** |
+| **Capturar/Liberar Mouse**| `M` ou `ESC` | Clique esquerdo na janela para recapturar | — | Alterna entre modo voo relativo (`DisableCursor`) e cursor livre para a área de trabalho |
+| **Inverter Eixo Y** | `I` | — | Clique no Analógico Esquerdo (`L3`) | Alterna entre arfagem invertida (padrão de manche de aviação) e direta |
+| **Painel Didático de CG** | `H` | — | Botão `Select` / `Back` / `View` | Exibe ou oculta o painel inferior direito com a fórmula do pipeline e ângulos em tempo real |
+| **Reiniciar Simulação** | `R` | — | Botão `Start` / `Menu` | Restaura posição da nave, câmera, pontuação, ondas e anéis de checkpoint |
 
 ---
 

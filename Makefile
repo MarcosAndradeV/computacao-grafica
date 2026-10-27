@@ -11,6 +11,7 @@ TARGET    = space_combat
 
 SRCS = $(SRC_DIR)/main.cpp \
        $(SRC_DIR)/core/entidades.cpp \
+       $(SRC_DIR)/input/input.cpp \
        $(SRC_DIR)/fisica/logica.cpp \
        $(SRC_DIR)/render/modelos_3d.cpp \
        $(SRC_DIR)/render/cena_3d.cpp \
@@ -18,6 +19,7 @@ SRCS = $(SRC_DIR)/main.cpp \
 
 OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS = $(SRC_DIR)/core/entidades.h \
+       $(SRC_DIR)/input/input.h \
        $(SRC_DIR)/fisica/logica.h \
        $(SRC_DIR)/render/modelos_3d.h \
        $(SRC_DIR)/render/cena_3d.h \

@@ -8,6 +8,7 @@
 // ============================================================================
 
 #include "render/hud.h"
+#include "input/input.h"
 #include "raymath.h"
 
 void RenderizarHUD(const JogoEstado &jogo) {
@@ -77,21 +78,24 @@ void RenderizarHUD(const JogoEstado &jogo) {
         DrawText(jogo.alertaTexto.c_str(), ax, 68, 20, (Color){0, 255, 220, 255});
     }
 
-    // 5. Painel Inferior Esquerdo: Telemetria de Navegação e Câmera
-    DrawRectangle(15, alturaTela - 80, 290, 65, (Color){10, 15, 30, 200});
-    DrawRectangleLines(15, alturaTela - 80, 290, 65, (Color){0, 180, 255, 120});
-    DrawText(TextFormat("VELOCIDADE: %.1f km/s", jogo.nave.velocidadeAtual * 10.0f), 25, alturaTela - 72, 13, WHITE);
-    DrawText(TextFormat("POSICAO: (X:%.1f, Y:%.1f, Z:%.1f)", jogo.nave.pos.x, jogo.nave.pos.y, jogo.nave.pos.z), 25, alturaTela - 54, 12, LIGHTGRAY);
+    // 5. Painel Inferior Esquerdo: Telemetria de Navegacao e Perifericos
+    DrawRectangle(15, alturaTela - 100, 310, 85, (Color){10, 15, 30, 200});
+    DrawRectangleLines(15, alturaTela - 100, 310, 85, (Color){0, 180, 255, 120});
+    DrawText(TextFormat("VELOCIDADE: %.1f km/s", jogo.nave.velocidadeAtual * 10.0f), 25, alturaTela - 92, 13, WHITE);
+    DrawText(TextFormat("POSICAO: (X:%.1f, Y:%.1f, Z:%.1f)", jogo.nave.pos.x, jogo.nave.pos.y, jogo.nave.pos.z), 25, alturaTela - 74, 12, LIGHTGRAY);
 
     const char *strCam = (jogo.modoCamera == ModoCamera::Chase)
                              ? "3a PESSOA (CHASE)"
                              : (jogo.modoCamera == ModoCamera::Cockpit ? "1a PESSOA (COCKPIT)" : "TATICA (ORBITAL)");
-    DrawText(TextFormat("CAMERA [C]: %s", strCam), 25, alturaTela - 36, 12, (Color){0, 240, 255, 255});
+    DrawText(TextFormat("CAMERA [C]: %s", strCam), 25, alturaTela - 56, 12, (Color){0, 240, 255, 255});
 
-    // 6. Painel Inferior Direito: Resumo Didático de Computação Gráfica (Alternável com [H])
+    const char *strInput = GamepadConectado() ? TextFormat("GAMEPAD: %s", ObterNomeGamepad()) : "ENTRADA: TECLADO + MOUSE";
+    DrawText(strInput, 25, alturaTela - 36, 11, GamepadConectado() ? GREEN : SKYBLUE);
+
+    // 6. Painel Inferior Direito: Resumo Didatico de Computacao Grafica (Alternavel com [H])
     if (jogo.mostrarHUD_CG) {
-        int pw = 360;
-        int ph = 175;
+        int pw = 370;
+        int ph = 210;
         int px = larguraTela - pw - 15;
         int py = alturaTela - ph - 15;
 
@@ -99,16 +103,20 @@ void RenderizarHUD(const JogoEstado &jogo) {
         DrawRectangleLines(px, py, pw, ph, (Color){0, 200, 255, 180});
 
         DrawText("TRANSFORMACOES GEOMETRICAS 3D (CG)", px + 15, py + 10, 13, (Color){0, 240, 255, 255});
-        DrawText("Pipeline: M = T(x,y,z) * Ry(yaw) * Rx(pitch) * Rz(roll) * S", px + 15, py + 30, 11, YELLOW);
-        DrawText(TextFormat("- Yaw (Guinada Y):   %.1f deg", jogo.nave.yaw), px + 15, py + 48, 11, LIGHTGRAY);
+        DrawText("Pipeline: M = T(x,y,z) * Ry(yaw) * Rx(pitch) * Rz(roll) * S", px + 15, py + 28, 11, YELLOW);
+        DrawText(TextFormat("- Yaw (Guinada Y):   %.1f deg", jogo.nave.yaw), px + 15, py + 44, 11, LIGHTGRAY);
         DrawText(TextFormat("- Pitch (Arfagem X): %.1f deg (Eixo Y %s [I])", jogo.nave.pitch, jogo.inverterPitch ? "Invertido" : "Direto"),
-                 px + 15, py + 64, 11, LIGHTGRAY);
-        DrawText(TextFormat("- Roll (Rolagem Z):  %.1f deg (Banking Dinamico)", jogo.nave.roll), px + 15, py + 80, 11, LIGHTGRAY);
-        DrawText("- Projecao: Perspectiva 3D (FOV 60 deg)", px + 15, py + 96, 11, SKYBLUE);
+                 px + 15, py + 58, 11, LIGHTGRAY);
+        DrawText(TextFormat("- Roll (Rolagem Z):  %.1f deg (Banking Dinamico)", jogo.nave.roll), px + 15, py + 72, 11, LIGHTGRAY);
+        DrawText("- Projecao: Perspectiva 3D (FOV 60 deg)", px + 15, py + 86, 11, SKYBLUE);
 
-        DrawText("CONTROLES: W/S/A/D ou Setas = Voo | Q/E = Roll", px + 15, py + 118, 11, RAYWHITE);
-        DrawText("ESPACO = Laser | SHIFT = Turbo | C = Camera", px + 15, py + 134, 11, RAYWHITE);
-        DrawText("R = Reiniciar | H = Ocultar Painel CG", px + 15, py + 150, 11, (Color){160, 200, 255, 200});
+        DrawText("MOUSE: Mover=Voo | Esq=Laser | Dir=Turbo | M=Liberar", px + 15, py + 106, 11, RAYWHITE);
+        DrawText("GAMEPAD: Stick=Voo | LB/RB=Roll | RT=Turbo | A/X=Laser", px + 15, py + 122, 11, RAYWHITE);
+        DrawText("TECLADO: W/S/A/D=Voo | Q/E=Roll | ESPACO=Laser", px + 15, py + 138, 11, RAYWHITE);
+        DrawText("ATALHOS: C=Camera | I=Inverter | R=Reset | H=HUD", px + 15, py + 154, 11, (Color){160, 200, 255, 200});
+
+        DrawText(TextFormat("MOUSE MODO: %s [M]", MouseEstaCapturado() ? "CAPTURADO (VOO)" : "LIVRE (CLIQUE NA TELA)"),
+                 px + 15, py + 178, 11, MouseEstaCapturado() ? LIME : ORANGE);
     } else {
         DrawText("Pressione [H] para exibir detalhes de CG e Controles", larguraTela - 380, alturaTela - 25, 12, GRAY);
     }

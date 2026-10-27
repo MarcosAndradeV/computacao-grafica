@@ -17,6 +17,7 @@
 // ============================================================================
 
 #include "core/entidades.h"
+#include "input/input.h"
 #include "fisica/logica.h"
 #include "render/cena_3d.h"
 #include "render/hud.h"
@@ -31,6 +32,9 @@ int main() {
     );
     SetTargetFPS(Config::FPS_ALVO);
     MaximizeWindow();
+
+    // Inicializa o subsistema unificado de entradas (Mouse, Gamepad e Teclado)
+    InicializarEntradas();
 
     // 2. Instanciação e Inicialização do Estado do Jogo (sem variáveis globais soltas)
     JogoEstado jogo;
