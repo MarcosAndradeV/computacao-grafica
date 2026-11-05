@@ -1,6 +1,111 @@
 #include "lighting.h"
-#include <GL/freeglut.h>
-#include <cmath>
+#include <raymath.h>
+
+namespace {
+    const char* VS_CODE = R"(#version 330
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec3 vertexNormal;
+in vec4 vertexColor;
+
+uniform mat4 mvp;
+uniform mat4 matModel;
+uniform mat4 matNormal;
+
+out vec3 fragPosition;
+out vec2 fragTexCoord;
+out vec4 fragColor;
+out vec3 fragNormal;
+
+void main() {
+    fragPosition = vec3(matModel * vec4(vertexPosition, 1.0));
+    fragTexCoord = vertexTexCoord;
+    fragColor = vertexColor;
+    fragNormal = normalize(vec3(matNormal * vec4(vertexNormal, 0.0)));
+    gl_Position = mvp * vec4(vertexPosition, 1.0);
+}
+)";
+
+    const char* FS_CODE = R"(#version 330
+in vec3 fragPosition;
+in vec2 fragTexCoord;
+in vec4 fragColor;
+in vec3 fragNormal;
+
+uniform vec4 colDiffuse;
+
+uniform int uDirLightEnabled;
+uniform int uPosLightEnabled;
+uniform int uAmbientEnabled;
+uniform int uDiffuseEnabled;
+uniform int uSpecularEnabled;
+
+uniform vec3 uDirLightDir;
+uniform vec3 uPosLightPos;
+uniform vec3 uViewPos;
+
+uniform vec4 uMaterialAmbient;
+uniform vec4 uMaterialSpecular;
+uniform float uMaterialShininess;
+
+out vec4 finalColor;
+
+void main() {
+    vec4 baseColor = colDiffuse * fragColor;
+    vec3 N = normalize(fragNormal);
+    vec3 V = normalize(uViewPos - fragPosition);
+
+    vec3 ambientAccum = vec3(0.0);
+    vec3 diffuseAccum = vec3(0.0);
+    vec3 specularAccum = vec3(0.0);
+
+    if (uAmbientEnabled == 1) {
+        ambientAccum += uMaterialAmbient.rgb * 0.4 + vec3(0.15);
+    }
+
+    // 1. Luz Direcional Distante
+    if (uDirLightEnabled == 1) {
+        vec3 L = normalize(uDirLightDir);
+        float NdotL = max(dot(N, L), 0.0);
+
+        if (uDiffuseEnabled == 1) {
+            diffuseAccum += vec3(0.85, 0.85, 0.80) * NdotL;
+        }
+
+        if (uSpecularEnabled == 1 && NdotL > 0.0) {
+            vec3 H = normalize(L + V);
+            float NdotH = max(dot(N, H), 0.0);
+            float spec = pow(NdotH, max(uMaterialShininess, 1.0));
+            specularAccum += uMaterialSpecular.rgb * spec * 0.8;
+        }
+    }
+
+    // 2. Luz Posicional Próxima com atenuação
+    if (uPosLightEnabled == 1) {
+        vec3 lightVec = uPosLightPos - fragPosition;
+        float dist = length(lightVec);
+        vec3 L = normalize(lightVec);
+        float att = 1.0 / (1.0 + 0.05 * dist + 0.01 * dist * dist);
+        float NdotL = max(dot(N, L), 0.0);
+
+        if (uDiffuseEnabled == 1) {
+            diffuseAccum += vec3(1.0, 0.95, 0.75) * NdotL * att;
+        }
+
+        if (uSpecularEnabled == 1 && NdotL > 0.0) {
+            vec3 H = normalize(L + V);
+            float NdotH = max(dot(N, H), 0.0);
+            float spec = pow(NdotH, max(uMaterialShininess, 1.0));
+            specularAccum += uMaterialSpecular.rgb * spec * att;
+        }
+    }
+
+    vec3 lightTotal = ambientAccum + diffuseAccum;
+    vec3 resultRgb = baseColor.rgb * lightTotal + specularAccum;
+    finalColor = vec4(clamp(resultRgb, 0.0, 1.0), baseColor.a);
+}
+)";
+}
 
 LightingManager::LightingManager() {
     reset();
@@ -13,21 +118,32 @@ void LightingManager::reset() {
     diffuseEnabled = true;
     specularEnabled = true;
 
-    for (int i = 0; i < 4; ++i) {
-        positionalPos[i] = defaultPositionalPos[i];
-        directionalDir[i] = defaultDirectionalDir[i];
-    }
+    positionalPos = defaultPositionalPos;
+    directionalDir = defaultDirectionalDir;
 }
 
 void LightingManager::init() {
-    glEnable(GL_LIGHTING);
-    glEnable(GL_NORMALIZE); // Normalização automática após glScalef
-    glShadeModel(GL_SMOOTH);
+    shader = LoadShaderFromMemory(VS_CODE, FS_CODE);
 
-    // Atenuação realista para a luz posicional próxima
-    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.0f);
-    glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.05f);
-    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.01f);
+    // Obter locais dos uniformes
+    uDirLightEnabledLoc   = GetShaderLocation(shader, "uDirLightEnabled");
+    uPosLightEnabledLoc   = GetShaderLocation(shader, "uPosLightEnabled");
+    uAmbientEnabledLoc    = GetShaderLocation(shader, "uAmbientEnabled");
+    uDiffuseEnabledLoc    = GetShaderLocation(shader, "uDiffuseEnabled");
+    uSpecularEnabledLoc   = GetShaderLocation(shader, "uSpecularEnabled");
+    uDirLightDirLoc       = GetShaderLocation(shader, "uDirLightDir");
+    uPosLightPosLoc       = GetShaderLocation(shader, "uPosLightPos");
+    uViewPosLoc           = GetShaderLocation(shader, "uViewPos");
+    uMaterialAmbientLoc   = GetShaderLocation(shader, "uMaterialAmbient");
+    uMaterialSpecularLoc  = GetShaderLocation(shader, "uMaterialSpecular");
+    uMaterialShininessLoc = GetShaderLocation(shader, "uMaterialShininess");
+
+    shader.locs[SHADER_LOC_VECTOR_VIEW] = uViewPosLoc;
+    shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(shader, "matModel");
+}
+
+void LightingManager::unload() {
+    UnloadShader(shader);
 }
 
 void LightingManager::toggleDirectional() { directionalEnabled = !directionalEnabled; }
@@ -37,95 +153,47 @@ void LightingManager::toggleDiffuse()     { diffuseEnabled = !diffuseEnabled; }
 void LightingManager::toggleSpecular()    { specularEnabled = !specularEnabled; }
 
 void LightingManager::translatePositionalLight(float dx, float dy, float dz) {
-    positionalPos[0] += dx;
-    positionalPos[1] += dy;
-    positionalPos[2] += dz;
+    positionalPos.x += dx;
+    positionalPos.y += dy;
+    positionalPos.z += dz;
 
-    // Limites de segurança dentro da galeria
-    if (positionalPos[1] < 0.3f) positionalPos[1] = 0.3f;
-    if (positionalPos[1] > 6.0f) positionalPos[1] = 6.0f;
+    if (positionalPos.y < 0.3f) positionalPos.y = 0.3f;
+    if (positionalPos.y > 6.0f) positionalPos.y = 6.0f;
 }
 
-void LightingManager::applyLighting() {
-    // 1. Luz Ambiente Global
-    GLfloat globalAmbient[4] = {0.2f, 0.2f, 0.2f, 1.0f};
-    GLfloat noAmbient[4]     = {0.0f, 0.0f, 0.0f, 1.0f};
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientEnabled ? globalAmbient : noAmbient);
+void LightingManager::update(Vector3 cameraPos) {
+    int dirVal = directionalEnabled ? 1 : 0;
+    int posVal = positionalEnabled ? 1 : 0;
+    int ambVal = ambientEnabled ? 1 : 0;
+    int difVal = diffuseEnabled ? 1 : 0;
+    int speVal = specularEnabled ? 1 : 0;
 
-    // 2. Luz Direcional Distante (GL_LIGHT0, w = 0.0f)
-    if (directionalEnabled) {
-        glEnable(GL_LIGHT0);
+    SetShaderValue(shader, uDirLightEnabledLoc, &dirVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uPosLightEnabledLoc, &posVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uAmbientEnabledLoc,  &ambVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uDiffuseEnabledLoc,  &difVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uSpecularEnabledLoc, &speVal, SHADER_UNIFORM_INT);
 
-        GLfloat dirAmbient[4]  = {0.1f, 0.1f, 0.1f, 1.0f};
-        GLfloat dirDiffuse[4]  = {0.7f, 0.7f, 0.65f, 1.0f};
-        GLfloat dirSpecular[4] = {0.6f, 0.6f, 0.6f, 1.0f};
-        GLfloat black[4]       = {0.0f, 0.0f, 0.0f, 1.0f};
+    SetShaderValue(shader, uDirLightDirLoc, &directionalDir, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, uPosLightPosLoc, &positionalPos,  SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, uViewPosLoc,     &cameraPos,      SHADER_UNIFORM_VEC3);
+}
 
-        glLightfv(GL_LIGHT0, GL_POSITION, directionalDir);
-        glLightfv(GL_LIGHT0, GL_AMBIENT, ambientEnabled ? dirAmbient : black);
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseEnabled ? dirDiffuse : black);
-        glLightfv(GL_LIGHT0, GL_SPECULAR, specularEnabled ? dirSpecular : black);
-    } else {
-        glDisable(GL_LIGHT0);
-    }
-
-    // 3. Luz Posicional Próxima (GL_LIGHT1, w = 1.0f)
-    if (positionalEnabled) {
-        glEnable(GL_LIGHT1);
-
-        GLfloat posAmbient[4]  = {0.12f, 0.12f, 0.08f, 1.0f};
-        GLfloat posDiffuse[4]  = {1.0f, 0.95f, 0.8f, 1.0f};
-        GLfloat posSpecular[4] = {1.0f, 1.0f, 0.9f, 1.0f};
-        GLfloat black[4]       = {0.0f, 0.0f, 0.0f, 1.0f};
-
-        glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
-        glLightfv(GL_LIGHT1, GL_AMBIENT, ambientEnabled ? posAmbient : black);
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuseEnabled ? posDiffuse : black);
-        glLightfv(GL_LIGHT1, GL_SPECULAR, specularEnabled ? posSpecular : black);
-    } else {
-        glDisable(GL_LIGHT1);
-    }
+void LightingManager::applyMaterial(const MaterialData& mat) {
+    SetShaderValue(shader, uMaterialAmbientLoc,   &mat.ambient,   SHADER_UNIFORM_VEC4);
+    SetShaderValue(shader, uMaterialSpecularLoc,  &mat.specular,  SHADER_UNIFORM_VEC4);
+    SetShaderValue(shader, uMaterialShininessLoc, &mat.shininess, SHADER_UNIFORM_FLOAT);
 }
 
 void LightingManager::renderLightMarker(bool isSelected) {
     if (!positionalEnabled) return;
 
-    glPushMatrix();
-    glTranslatef(positionalPos[0], positionalPos[1], positionalPos[2]);
+    // Lâmpada indicadora amarela brilhante
+    DrawSphere(positionalPos, 0.22f, YELLOW);
 
-    // Material emissivo para a lâmpada/lustre móvel
-    GLfloat emissionColor[4] = {1.0f, 0.95f, 0.4f, 1.0f};
-    GLfloat noEmission[4]    = {0.0f, 0.0f, 0.0f, 1.0f};
-
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissionColor);
-    glutSolidSphere(0.22, 24, 24);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
-
-    // Se estiver selecionada para movimentação (tecla '0'), desenhar anéis de indicação
     if (isSelected) {
-        glPushAttrib(GL_LIGHTING_BIT | GL_LINE_BIT);
-        glDisable(GL_LIGHTING);
-        glColor3f(1.0f, 0.85f, 0.0f);
-        glLineWidth(2.0f);
-
-        // Anel horizontal
-        glBegin(GL_LINE_LOOP);
-        for (int i = 0; i < 36; ++i) {
-            float rad = 2.0f * 3.1415926f * float(i) / 36.0f;
-            glVertex3f(0.38f * std::cos(rad), 0.0f, 0.38f * std::sin(rad));
-        }
-        glEnd();
-
-        // Anel vertical
-        glBegin(GL_LINE_LOOP);
-        for (int i = 0; i < 36; ++i) {
-            float rad = 2.0f * 3.1415926f * float(i) / 36.0f;
-            glVertex3f(0.38f * std::cos(rad), 0.38f * std::sin(rad), 0.0f);
-        }
-        glEnd();
-
-        glPopAttrib();
+        // Indicador de seleção da luz
+        DrawCircle3D(positionalPos, 0.40f, {0, 1, 0}, 90.0f, GOLD);
+        DrawCircle3D(positionalPos, 0.40f, {1, 0, 0}, 90.0f, GOLD);
     }
-
-    glPopMatrix();
 }

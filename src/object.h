@@ -1,13 +1,15 @@
 #pragma once
 #include <string>
-#include <GL/freeglut.h>
+#include <raylib.h>
 #include "material.h"
 
+class LightingManager;
+
 enum class ArtObjectType {
-    TEAPOT,
-    SPHERE,
-    TORUS,
-    CONE
+    KNOT,    // Nó Escultural (Substitui Teapot mantendo a complexidade artística)
+    SPHERE,  // Esfera
+    TORUS,   // Toro
+    CONE     // Cone
 };
 
 struct Transform3D {
@@ -26,22 +28,26 @@ public:
     std::string name;
     std::string materialName;
     ArtObjectType type;
-    Material material;
+    MaterialData material;
 
     Transform3D currentTransform;
     Transform3D initialTransform;
 
+    Model model;
+
     ArtObject(int id, const std::string& name, const std::string& materialName,
-              ArtObjectType type, const Material& mat, const Transform3D& initialTrans);
+              ArtObjectType type, const MaterialData& mat, const Transform3D& initialTrans);
+
+    void init();
+    void unload();
 
     void translate(float dx, float dy, float dz);
     void rotate(float rx, float ry, float rz);
     void changeScale(float deltaScale);
     void reset();
 
-    void render(bool isSelected, bool enableAmbient, bool enableDiffuse, bool enableSpecular);
+    void render(bool isSelected, LightingManager& lighting);
 
 private:
-    void drawGeometry();
     void drawSelectionHighlight();
 };

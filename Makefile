@@ -1,12 +1,12 @@
 # ============================================================================
 # Makefile - Galeria de Arte 3D Interativa
 # Componente: Computação Gráfica
-# Tecnologias: C++17, OpenGL, GLU, FreeGLUT
+# Tecnologias: C++17, Raylib (OpenGL Moderno com Shaders GLSL)
 # ============================================================================
 
 CXX      = g++
 CXXFLAGS = -Wall -Wextra -O2 -std=c++17 -Isrc
-LIBS     = -lglut -lGLU -lGL -lm
+LIBS     = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 SRC_DIR   = src
 BUILD_DIR = build

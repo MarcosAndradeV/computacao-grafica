@@ -1,13 +1,12 @@
 #pragma once
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include <raylib.h>
 
 enum class ProjectionMode {
     PERSPECTIVE,
     ORTHOGRAPHIC
 };
 
-class Camera {
+class GalleryCamera {
 public:
     ProjectionMode projectionMode;
 
@@ -27,7 +26,7 @@ public:
     const float defaultElevation = 25.0f;
     const float defaultDistance = 14.0f;
 
-    Camera();
+    GalleryCamera();
 
     void rotate(float deltaAzimuth, float deltaElevation);
     void zoom(float deltaDistance);
@@ -35,8 +34,7 @@ public:
     void toggleProjection();
     void reset();
 
-    void applyProjection(int windowWidth, int windowHeight) const;
-    void applyView() const;
-
+    Camera3D getRaylibCamera() const;
+    Vector3 getPosition() const;
     const char* getProjectionName() const;
 };

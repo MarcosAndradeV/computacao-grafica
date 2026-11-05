@@ -1,10 +1,35 @@
 #include "object.h"
+#include "lighting.h"
+#include <raymath.h>
 #include <cmath>
 
 ArtObject::ArtObject(int id, const std::string& name, const std::string& materialName,
-                     ArtObjectType type, const Material& mat, const Transform3D& initialTrans)
+                     ArtObjectType type, const MaterialData& mat, const Transform3D& initialTrans)
     : id(id), name(name), materialName(materialName), type(type), material(mat),
       currentTransform(initialTrans), initialTransform(initialTrans) {}
+
+void ArtObject::init() {
+    Mesh mesh;
+    switch (type) {
+        case ArtObjectType::KNOT:
+            mesh = GenMeshKnot(0.6f, 1.4f, 32, 32);
+            break;
+        case ArtObjectType::SPHERE:
+            mesh = GenMeshSphere(0.85f, 32, 32);
+            break;
+        case ArtObjectType::TORUS:
+            mesh = GenMeshTorus(0.35f, 0.72f, 32, 32);
+            break;
+        case ArtObjectType::CONE:
+            mesh = GenMeshCone(0.8f, 1.5f, 32);
+            break;
+    }
+    model = LoadModelFromMesh(mesh);
+}
+
+void ArtObject::unload() {
+    UnloadModel(model);
+}
 
 void ArtObject::translate(float dx, float dy, float dz) {
     currentTransform.posX += dx;
@@ -17,7 +42,6 @@ void ArtObject::rotate(float rx, float ry, float rz) {
     currentTransform.rotY += ry;
     currentTransform.rotZ += rz;
 
-    // Normalizar ângulos para [0, 360)
     currentTransform.rotX = std::fmod(currentTransform.rotX, 360.0f);
     currentTransform.rotY = std::fmod(currentTransform.rotY, 360.0f);
     currentTransform.rotZ = std::fmod(currentTransform.rotZ, 360.0f);
@@ -33,75 +57,32 @@ void ArtObject::reset() {
     currentTransform = initialTransform;
 }
 
-void ArtObject::render(bool isSelected, bool enableAmbient, bool enableDiffuse, bool enableSpecular) {
-    glPushMatrix();
+void ArtObject::render(bool isSelected, LightingManager& lighting) {
+    // 1. Configurar Shader e Material
+    model.materials[0].shader = lighting.shader;
+    lighting.applyMaterial(material);
 
-    // 1. Aplicação das Transformações Geométricas 3D na ordem: Translação -> Rotação -> Escala
-    glTranslatef(currentTransform.posX, currentTransform.posY, currentTransform.posZ);
-    glRotatef(currentTransform.rotX, 1.0f, 0.0f, 0.0f);
-    glRotatef(currentTransform.rotY, 0.0f, 1.0f, 0.0f);
-    glRotatef(currentTransform.rotZ, 0.0f, 0.0f, 1.0f);
-    glScalef(currentTransform.scale, currentTransform.scale, currentTransform.scale);
+    // 2. Matriz de Transformação Geométrica Composta: Escala -> Rotação -> Translação
+    Matrix matScale = MatrixScale(currentTransform.scale, currentTransform.scale, currentTransform.scale);
+    Matrix matRot = MatrixRotateXYZ({
+        currentTransform.rotX * DEG2RAD,
+        currentTransform.rotY * DEG2RAD,
+        currentTransform.rotZ * DEG2RAD
+    });
+    Matrix matTrans = MatrixTranslate(currentTransform.posX, currentTransform.posY, currentTransform.posZ);
 
-    // 2. Configuração de Materiais na Pipeline Fixa
-    Materials::apply(material, enableAmbient, enableDiffuse, enableSpecular);
+    model.transform = MatrixMultiply(MatrixMultiply(matScale, matRot), matTrans);
 
-    // 3. Renderização da Geometria 3D
-    drawGeometry();
+    // 3. Renderizar Modelo 3D
+    DrawModel(model, {0.0f, 0.0f, 0.0f}, 1.0f, material.baseColor);
 
-    // 4. Indicador visual para o objeto selecionado (anel ou caixa aramada discreta)
+    // 4. Indicador de Seleção
     if (isSelected) {
         drawSelectionHighlight();
-    }
-
-    glPopMatrix();
-}
-
-void ArtObject::drawGeometry() {
-    switch (type) {
-        case ArtObjectType::TEAPOT:
-            // FreeGLUT teapot gera normais automáticas
-            glFrontFace(GL_CW); // Teapot clássico do GLUT usa orientação horária
-            glutSolidTeapot(0.9);
-            glFrontFace(GL_CCW);
-            break;
-
-        case ArtObjectType::SPHERE:
-            glutSolidSphere(0.85, 40, 40);
-            break;
-
-        case ArtObjectType::TORUS:
-            glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-            glutSolidTorus(0.32, 0.72, 32, 32);
-            break;
-
-        case ArtObjectType::CONE:
-            glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-            glTranslatef(0.0f, 0.0f, -0.7f);
-            glutSolidCone(0.8, 1.5, 36, 36);
-            break;
     }
 }
 
 void ArtObject::drawSelectionHighlight() {
-    // Desabilitar iluminação temporariamente para renderizar o anel indicador brilhante
-    glPushAttrib(GL_LIGHTING_BIT | GL_LINE_BIT);
-    glDisable(GL_LIGHTING);
-
-    glColor3f(1.0f, 0.84f, 0.0f); // Dourado brilhante de seleção
-    glLineWidth(2.5f);
-
-    // Desenhar um anel ao redor da base do objeto
-    glBegin(GL_LINE_LOOP);
-    const int segments = 48;
-    const float radius = 1.3f;
-    for (int i = 0; i < segments; ++i) {
-        float theta = 2.0f * 3.1415926f * float(i) / float(segments);
-        float x = radius * std::cos(theta);
-        float z = radius * std::sin(theta);
-        glVertex3f(x, -0.65f, z);
-    }
-    glEnd();
-
-    glPopAttrib();
+    Vector3 center = {currentTransform.posX, currentTransform.posY - 0.65f * currentTransform.scale, currentTransform.posZ};
+    DrawCircle3D(center, 1.35f * currentTransform.scale, {0.0f, 1.0f, 0.0f}, 90.0f, GOLD);
 }

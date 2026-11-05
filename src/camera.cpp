@@ -3,15 +3,15 @@
 #include <algorithm>
 
 namespace {
-    constexpr float DEG2RAD = 3.14159265358979323846f / 180.0f;
+    constexpr float DEG2RAD_LOCAL = 3.14159265358979323846f / 180.0f;
 }
 
-Camera::Camera() {
+GalleryCamera::GalleryCamera() {
     projectionMode = ProjectionMode::PERSPECTIVE;
     reset();
 }
 
-void Camera::reset() {
+void GalleryCamera::reset() {
     targetX = defaultTargetX;
     targetY = defaultTargetY;
     targetZ = defaultTargetZ;
@@ -21,7 +21,7 @@ void Camera::reset() {
     projectionMode = ProjectionMode::PERSPECTIVE;
 }
 
-void Camera::rotate(float deltaAzimuth, float deltaElevation) {
+void GalleryCamera::rotate(float deltaAzimuth, float deltaElevation) {
     azimuthDeg += deltaAzimuth;
     elevationDeg += deltaElevation;
 
@@ -29,22 +29,21 @@ void Camera::rotate(float deltaAzimuth, float deltaElevation) {
     azimuthDeg = std::fmod(azimuthDeg, 360.0f);
     if (azimuthDeg < 0.0f) azimuthDeg += 360.0f;
 
-    // Limitar elevação para evitar inversão da câmera (gimbal lock no zênite/nadir)
+    // Limitar elevação para evitar inversão
     elevationDeg = std::clamp(elevationDeg, -85.0f, 85.0f);
 }
 
-void Camera::zoom(float deltaDistance) {
+void GalleryCamera::zoom(float deltaDistance) {
     distance += deltaDistance;
     distance = std::clamp(distance, 3.0f, 35.0f);
 }
 
-void Camera::pan(float deltaX, float deltaY) {
-    // Deslocar o ponto de observação no plano perpendicular à linha de visão
-    float radAz = azimuthDeg * DEG2RAD;
+void GalleryCamera::pan(float deltaX, float deltaY) {
+    float radAz = azimuthDeg * DEG2RAD_LOCAL;
     float cosAz = std::cos(radAz);
     float sinAz = std::sin(radAz);
 
-    // Vetor lateral (Right) no plano XZ
+    // Vetor lateral no plano XZ
     float rightX = cosAz;
     float rightZ = -sinAz;
 
@@ -53,7 +52,7 @@ void Camera::pan(float deltaX, float deltaY) {
     targetY += deltaY;
 }
 
-void Camera::toggleProjection() {
+void GalleryCamera::toggleProjection() {
     if (projectionMode == ProjectionMode::PERSPECTIVE) {
         projectionMode = ProjectionMode::ORTHOGRAPHIC;
     } else {
@@ -61,43 +60,34 @@ void Camera::toggleProjection() {
     }
 }
 
-void Camera::applyProjection(int windowWidth, int windowHeight) const {
-    if (windowHeight <= 0) windowHeight = 1;
-    float aspect = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
+Vector3 GalleryCamera::getPosition() const {
+    float radAz = azimuthDeg * DEG2RAD_LOCAL;
+    float radEl = elevationDeg * DEG2RAD_LOCAL;
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    if (projectionMode == ProjectionMode::PERSPECTIVE) {
-        // Campo de visão vertical 45 graus, plano próximo 0.5, distante 100.0
-        gluPerspective(45.0, aspect, 0.5, 100.0);
-    } else {
-        // Projeção Ortográfica dimensionada proporcionalmente à distância (zoom)
-        float orthoHeight = distance * 0.45f;
-        float orthoWidth = orthoHeight * aspect;
-        glOrtho(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight, -50.0, 100.0);
-    }
-
-    glMatrixMode(GL_MODELVIEW);
-}
-
-void Camera::applyView() const {
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    float radAz = azimuthDeg * DEG2RAD;
-    float radEl = elevationDeg * DEG2RAD;
-
-    // Conversão de coordenadas esféricas para cartesianas
     float eyeX = targetX + distance * std::cos(radEl) * std::sin(radAz);
     float eyeY = targetY + distance * std::sin(radEl);
     float eyeZ = targetZ + distance * std::cos(radEl) * std::cos(radAz);
 
-    gluLookAt(eyeX, eyeY, eyeZ,
-              targetX, targetY, targetZ,
-              0.0f, 1.0f, 0.0f);
+    return {eyeX, eyeY, eyeZ};
 }
 
-const char* Camera::getProjectionName() const {
-    return (projectionMode == ProjectionMode::PERSPECTIVE) ? "PERSPECTIVA (gluPerspective)" : "ORTOGRAFICA (glOrtho)";
+Camera3D GalleryCamera::getRaylibCamera() const {
+    Camera3D cam;
+    cam.position = getPosition();
+    cam.target = {targetX, targetY, targetZ};
+    cam.up = {0.0f, 1.0f, 0.0f};
+
+    if (projectionMode == ProjectionMode::PERSPECTIVE) {
+        cam.fovy = 45.0f;
+        cam.projection = CAMERA_PERSPECTIVE;
+    } else {
+        cam.fovy = distance * 0.75f;
+        cam.projection = CAMERA_ORTHOGRAPHIC;
+    }
+
+    return cam;
+}
+
+const char* GalleryCamera::getProjectionName() const {
+    return (projectionMode == ProjectionMode::PERSPECTIVE) ? "PERSPECTIVA (Raylib 3D)" : "ORTOGRAFICA (Raylib 3D)";
 }

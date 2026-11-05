@@ -1,5 +1,6 @@
 #pragma once
-#include <GL/gl.h>
+#include <raylib.h>
+#include "material.h"
 
 class LightingManager {
 public:
@@ -11,16 +12,32 @@ public:
     bool specularEnabled;     // F5
 
     // Posições
-    GLfloat directionalDir[4]; // Luz distante (w = 0.0)
-    GLfloat positionalPos[4];  // Luz próxima (w = 1.0)
+    Vector3 directionalDir; // Luz distante
+    Vector3 positionalPos;  // Luz próxima
 
     // Posição inicial para reset
-    const GLfloat defaultPositionalPos[4] = {0.0f, 3.8f, 0.0f, 1.0f};
-    const GLfloat defaultDirectionalDir[4] = {1.0f, 2.0f, 1.2f, 0.0f};
+    const Vector3 defaultPositionalPos = {0.0f, 3.8f, 0.0f};
+    const Vector3 defaultDirectionalDir = {1.0f, 2.0f, 1.2f};
+
+    Shader shader;
+
+    // Uniform locations no shader GLSL
+    int uDirLightEnabledLoc;
+    int uPosLightEnabledLoc;
+    int uAmbientEnabledLoc;
+    int uDiffuseEnabledLoc;
+    int uSpecularEnabledLoc;
+    int uDirLightDirLoc;
+    int uPosLightPosLoc;
+    int uViewPosLoc;
+    int uMaterialAmbientLoc;
+    int uMaterialSpecularLoc;
+    int uMaterialShininessLoc;
 
     LightingManager();
 
     void init();
+    void unload();
     void reset();
 
     void toggleDirectional();
@@ -31,8 +48,8 @@ public:
 
     void translatePositionalLight(float dx, float dy, float dz);
 
-    // Deve ser chamada logo após a configuração da câmera (gluLookAt) para fixar as luzes no espaço de mundo
-    void applyLighting();
+    void update(Vector3 cameraPos);
+    void applyMaterial(const MaterialData& mat);
 
     // Renderiza a lâmpada/marcador da luz posicional no espaço 3D
     void renderLightMarker(bool isSelected);
