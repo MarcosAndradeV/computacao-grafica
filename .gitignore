@@ -1,0 +1,7 @@
+# Build artifacts
+build/
+galeria_arte
+*.o
+*.a
+*.so
+.DS_Store
