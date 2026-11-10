@@ -1,10 +1,8 @@
 #include "camera.h"
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
-namespace {
-    constexpr float DEG2RAD_LOCAL = 3.14159265358979323846f / 180.0f;
-}
+constexpr float DEG2RAD_LOCAL = 3.14159265358979323846f / 180.0f;
 
 GalleryCamera::GalleryCamera() {
     projectionMode = ProjectionMode::PERSPECTIVE;
@@ -27,7 +25,8 @@ void GalleryCamera::rotate(float deltaAzimuth, float deltaElevation) {
 
     // Manter azimute em [0, 360)
     azimuthDeg = std::fmod(azimuthDeg, 360.0f);
-    if (azimuthDeg < 0.0f) azimuthDeg += 360.0f;
+    if (azimuthDeg < 0.0f)
+        azimuthDeg += 360.0f;
 
     // Limitar elevação para evitar inversão
     elevationDeg = std::clamp(elevationDeg, -85.0f, 85.0f);
@@ -88,6 +87,6 @@ Camera3D GalleryCamera::getRaylibCamera() const {
     return cam;
 }
 
-const char* GalleryCamera::getProjectionName() const {
+const char *GalleryCamera::getProjectionName() const {
     return (projectionMode == ProjectionMode::PERSPECTIVE) ? "PERSPECTIVA (Raylib 3D)" : "ORTOGRAFICA (Raylib 3D)";
 }

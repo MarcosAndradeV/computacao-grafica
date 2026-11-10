@@ -4,14 +4,9 @@
 
 HUD::HUD() : showHelp(true) {}
 
-void HUD::toggleHelp() {
-    showHelp = !showHelp;
-}
+void HUD::toggleHelp() { showHelp = !showHelp; }
 
-void HUD::render(int windowWidth, int windowHeight,
-                const GalleryCamera& camera,
-                const LightingManager& lighting,
-                const Scene& scene) {
+void HUD::render(int windowWidth, int windowHeight, const GalleryCamera &camera, const LightingManager &lighting, const Scene &scene) {
     (void)windowWidth;
     (void)windowHeight;
 
@@ -34,7 +29,7 @@ void HUD::render(int windowWidth, int windowHeight,
         ssEnt << "Entidade Ativa: [0] LUZ POSICIONAL (Movel)";
         DrawText(ssEnt.str().c_str(), panelX + 15, currentY, 13, YELLOW);
     } else {
-        const auto& obj = scene.objects[scene.selectedEntity - 1];
+        const auto &obj = scene.objects[scene.selectedEntity - 1];
         ssEnt << "Entidade Ativa: [" << obj.id << "] " << obj.name << " (" << obj.materialName << ")";
         DrawText(ssEnt.str().c_str(), panelX + 15, currentY, 13, SKYBLUE);
     }
@@ -44,20 +39,15 @@ void HUD::render(int windowWidth, int windowHeight,
     std::ostringstream ssStats;
     ssStats << std::fixed << std::setprecision(2);
     if (scene.selectedEntity == 0) {
-        ssStats << "Posicao Luz (X,Y,Z): ("
-                << lighting.positionalPos.x << ", "
-                << lighting.positionalPos.y << ", "
-                << lighting.positionalPos.z << ")";
+        ssStats << "Posicao Luz (X,Y,Z): (" << lighting.positionalPos.x << ", " << lighting.positionalPos.y << ", " << lighting.positionalPos.z
+                << ")";
         DrawText(ssStats.str().c_str(), panelX + 15, currentY, 12, LIGHTGRAY);
     } else {
-        const auto& obj = scene.objects[scene.selectedEntity - 1];
-        ssStats << "Pos: (" << obj.currentTransform.posX << ", "
-                            << obj.currentTransform.posY << ", "
-                            << obj.currentTransform.posZ << ") "
-                << "Rot: (" << int(obj.currentTransform.rotX) << ", "
-                            << int(obj.currentTransform.rotY) << ", "
-                            << int(obj.currentTransform.rotZ) << ") "
-                << "Esc: "  << obj.currentTransform.scale << "x";
+        const auto &obj = scene.objects[scene.selectedEntity - 1];
+        ssStats << "Pos: (" << obj.currentTransform.posX << ", " << obj.currentTransform.posY << ", " << obj.currentTransform.posZ << ") "
+                << "Rot: (" << int(obj.currentTransform.rotX) << ", " << int(obj.currentTransform.rotY) << ", " << int(obj.currentTransform.rotZ)
+                << ") "
+                << "Esc: " << obj.currentTransform.scale << "x";
         DrawText(ssStats.str().c_str(), panelX + 15, currentY, 12, LIGHTGRAY);
     }
 
@@ -70,14 +60,13 @@ void HUD::render(int windowWidth, int windowHeight,
     currentY += 20;
     std::ostringstream ssLight;
     ssLight << "Luzes: [F1] Direcional: " << (lighting.directionalEnabled ? "LIG" : "DES")
-            << " | [F2] Posicional: "     << (lighting.positionalEnabled ? "LIG" : "DES");
+            << " | [F2] Posicional: " << (lighting.positionalEnabled ? "LIG" : "DES");
     DrawText(ssLight.str().c_str(), panelX + 15, currentY, 12, LIME);
 
     currentY += 16;
     std::ostringstream ssComp;
-    ssComp << "Componentes: [F3] Amb: " << (lighting.ambientEnabled ? "ON " : "OFF")
-           << "  [F4] Dif: "           << (lighting.diffuseEnabled ? "ON " : "OFF")
-           << "  [F5] Esp: "           << (lighting.specularEnabled ? "ON" : "OFF");
+    ssComp << "Componentes: [F3] Amb: " << (lighting.ambientEnabled ? "ON " : "OFF") << "  [F4] Dif: " << (lighting.diffuseEnabled ? "ON " : "OFF")
+           << "  [F5] Esp: " << (lighting.specularEnabled ? "ON" : "OFF");
     DrawText(ssComp.str().c_str(), panelX + 15, currentY, 12, GREEN);
 
     // Guia de Teclas / Controles

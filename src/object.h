@@ -1,16 +1,11 @@
 #pragma once
-#include <string>
-#include <raylib.h>
 #include "material.h"
+#include <raylib.h>
+#include <string>
 
 class LightingManager;
 
-enum class ArtObjectType {
-    KNOT,    // Nó Escultural (Substitui Teapot mantendo a complexidade artística)
-    SPHERE,  // Esfera
-    TORUS,   // Toro
-    CONE     // Cone
-};
+enum class ArtObjectType { KNOT, SPHERE, TORUS, CONE };
 
 struct Transform3D {
     float posX = 0.0f;
@@ -23,7 +18,7 @@ struct Transform3D {
 };
 
 class ArtObject {
-public:
+  public:
     int id;
     std::string name;
     std::string materialName;
@@ -35,8 +30,12 @@ public:
 
     Model model;
 
-    ArtObject(int id, const std::string& name, const std::string& materialName,
-              ArtObjectType type, const MaterialData& mat, const Transform3D& initialTrans);
+    ArtObject(int id,
+              const std::string &name,
+              const std::string &materialName,
+              ArtObjectType type,
+              const MaterialData &mat,
+              const Transform3D &initialTrans);
 
     void init();
     void unload();
@@ -46,8 +45,8 @@ public:
     void changeScale(float deltaScale);
     void reset();
 
-    void render(bool isSelected, LightingManager& lighting);
+    void render(bool isSelected, LightingManager &lighting);
 
-private:
+  private:
     void drawSelectionHighlight();
 };

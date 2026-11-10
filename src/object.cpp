@@ -1,35 +1,32 @@
 #include "object.h"
 #include "lighting.h"
-#include <raymath.h>
 #include <cmath>
+#include <raymath.h>
 
-ArtObject::ArtObject(int id, const std::string& name, const std::string& materialName,
-                     ArtObjectType type, const MaterialData& mat, const Transform3D& initialTrans)
-    : id(id), name(name), materialName(materialName), type(type), material(mat),
-      currentTransform(initialTrans), initialTransform(initialTrans) {}
+ArtObject::ArtObject(
+    int id, const std::string &name, const std::string &materialName, ArtObjectType type, const MaterialData &mat, const Transform3D &initialTrans)
+    : id(id), name(name), materialName(materialName), type(type), material(mat), currentTransform(initialTrans), initialTransform(initialTrans) {}
 
 void ArtObject::init() {
     Mesh mesh;
     switch (type) {
-        case ArtObjectType::KNOT:
-            mesh = GenMeshKnot(0.6f, 1.4f, 32, 32);
-            break;
-        case ArtObjectType::SPHERE:
-            mesh = GenMeshSphere(0.85f, 32, 32);
-            break;
-        case ArtObjectType::TORUS:
-            mesh = GenMeshTorus(0.35f, 0.72f, 32, 32);
-            break;
-        case ArtObjectType::CONE:
-            mesh = GenMeshCone(0.8f, 1.5f, 32);
-            break;
+    case ArtObjectType::KNOT:
+        mesh = GenMeshKnot(0.6f, 1.4f, 32, 32);
+        break;
+    case ArtObjectType::SPHERE:
+        mesh = GenMeshSphere(0.85f, 32, 32);
+        break;
+    case ArtObjectType::TORUS:
+        mesh = GenMeshTorus(0.35f, 0.72f, 32, 32);
+        break;
+    case ArtObjectType::CONE:
+        mesh = GenMeshCone(0.8f, 1.5f, 32);
+        break;
     }
     model = LoadModelFromMesh(mesh);
 }
 
-void ArtObject::unload() {
-    UnloadModel(model);
-}
+void ArtObject::unload() { UnloadModel(model); }
 
 void ArtObject::translate(float dx, float dy, float dz) {
     currentTransform.posX += dx;
@@ -49,26 +46,22 @@ void ArtObject::rotate(float rx, float ry, float rz) {
 
 void ArtObject::changeScale(float deltaScale) {
     currentTransform.scale += deltaScale;
-    if (currentTransform.scale < 0.1f) currentTransform.scale = 0.1f;
-    if (currentTransform.scale > 4.0f) currentTransform.scale = 4.0f;
+    if (currentTransform.scale < 0.1f)
+        currentTransform.scale = 0.1f;
+    if (currentTransform.scale > 4.0f)
+        currentTransform.scale = 4.0f;
 }
 
-void ArtObject::reset() {
-    currentTransform = initialTransform;
-}
+void ArtObject::reset() { currentTransform = initialTransform; }
 
-void ArtObject::render(bool isSelected, LightingManager& lighting) {
+void ArtObject::render(bool isSelected, LightingManager &lighting) {
     // 1. Configurar Shader e Material
     model.materials[0].shader = lighting.shader;
     lighting.applyMaterial(material);
 
     // 2. Matriz de Transformação Geométrica Composta: Escala -> Rotação -> Translação
     Matrix matScale = MatrixScale(currentTransform.scale, currentTransform.scale, currentTransform.scale);
-    Matrix matRot = MatrixRotateXYZ({
-        currentTransform.rotX * DEG2RAD,
-        currentTransform.rotY * DEG2RAD,
-        currentTransform.rotZ * DEG2RAD
-    });
+    Matrix matRot = MatrixRotateXYZ({currentTransform.rotX * DEG2RAD, currentTransform.rotY * DEG2RAD, currentTransform.rotZ * DEG2RAD});
     Matrix matTrans = MatrixTranslate(currentTransform.posX, currentTransform.posY, currentTransform.posZ);
 
     model.transform = MatrixMultiply(MatrixMultiply(matScale, matRot), matTrans);

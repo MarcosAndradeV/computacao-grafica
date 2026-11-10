@@ -1,24 +1,18 @@
 #pragma once
 #include <raylib.h>
 
-enum class ProjectionMode {
-    PERSPECTIVE,
-    ORTHOGRAPHIC
-};
+enum class ProjectionMode { PERSPECTIVE, ORTHOGRAPHIC };
 
 class GalleryCamera {
-public:
+  public:
     ProjectionMode projectionMode;
 
-    // Ponto de observação (Target)
     float targetX, targetY, targetZ;
 
-    // Coordenadas esféricas em relação ao alvo
-    float azimuthDeg;   // Rotação horizontal (eixo Y)
-    float elevationDeg; // Rotação vertical (elevação)
-    float distance;     // Distância (Zoom)
+    float azimuthDeg;
+    float elevationDeg;
+    float distance;
 
-    // Valores padrão para restauração (Reset)
     const float defaultTargetX = 0.0f;
     const float defaultTargetY = 1.2f;
     const float defaultTargetZ = 0.0f;
@@ -36,5 +30,5 @@ public:
 
     Camera3D getRaylibCamera() const;
     Vector3 getPosition() const;
-    const char* getProjectionName() const;
+    const char *getProjectionName() const;
 };

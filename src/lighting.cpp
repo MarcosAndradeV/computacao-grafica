@@ -1,8 +1,7 @@
 #include "lighting.h"
 #include <raymath.h>
 
-namespace {
-    const char* VS_CODE = R"(#version 330
+const char *VS_CODE = R"(#version 330
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 in vec3 vertexNormal;
@@ -26,7 +25,7 @@ void main() {
 }
 )";
 
-    const char* FS_CODE = R"(#version 330
+const char *FS_CODE = R"(#version 330
 in vec3 fragPosition;
 in vec2 fragTexCoord;
 in vec4 fragColor;
@@ -105,11 +104,8 @@ void main() {
     finalColor = vec4(clamp(resultRgb, 0.0, 1.0), baseColor.a);
 }
 )";
-}
 
-LightingManager::LightingManager() {
-    reset();
-}
+LightingManager::LightingManager() { reset(); }
 
 void LightingManager::reset() {
     directionalEnabled = true;
@@ -126,39 +122,39 @@ void LightingManager::init() {
     shader = LoadShaderFromMemory(VS_CODE, FS_CODE);
 
     // Obter locais dos uniformes
-    uDirLightEnabledLoc   = GetShaderLocation(shader, "uDirLightEnabled");
-    uPosLightEnabledLoc   = GetShaderLocation(shader, "uPosLightEnabled");
-    uAmbientEnabledLoc    = GetShaderLocation(shader, "uAmbientEnabled");
-    uDiffuseEnabledLoc    = GetShaderLocation(shader, "uDiffuseEnabled");
-    uSpecularEnabledLoc   = GetShaderLocation(shader, "uSpecularEnabled");
-    uDirLightDirLoc       = GetShaderLocation(shader, "uDirLightDir");
-    uPosLightPosLoc       = GetShaderLocation(shader, "uPosLightPos");
-    uViewPosLoc           = GetShaderLocation(shader, "uViewPos");
-    uMaterialAmbientLoc   = GetShaderLocation(shader, "uMaterialAmbient");
-    uMaterialSpecularLoc  = GetShaderLocation(shader, "uMaterialSpecular");
+    uDirLightEnabledLoc = GetShaderLocation(shader, "uDirLightEnabled");
+    uPosLightEnabledLoc = GetShaderLocation(shader, "uPosLightEnabled");
+    uAmbientEnabledLoc = GetShaderLocation(shader, "uAmbientEnabled");
+    uDiffuseEnabledLoc = GetShaderLocation(shader, "uDiffuseEnabled");
+    uSpecularEnabledLoc = GetShaderLocation(shader, "uSpecularEnabled");
+    uDirLightDirLoc = GetShaderLocation(shader, "uDirLightDir");
+    uPosLightPosLoc = GetShaderLocation(shader, "uPosLightPos");
+    uViewPosLoc = GetShaderLocation(shader, "uViewPos");
+    uMaterialAmbientLoc = GetShaderLocation(shader, "uMaterialAmbient");
+    uMaterialSpecularLoc = GetShaderLocation(shader, "uMaterialSpecular");
     uMaterialShininessLoc = GetShaderLocation(shader, "uMaterialShininess");
 
     shader.locs[SHADER_LOC_VECTOR_VIEW] = uViewPosLoc;
     shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(shader, "matModel");
 }
 
-void LightingManager::unload() {
-    UnloadShader(shader);
-}
+void LightingManager::unload() { UnloadShader(shader); }
 
 void LightingManager::toggleDirectional() { directionalEnabled = !directionalEnabled; }
-void LightingManager::togglePositional()  { positionalEnabled = !positionalEnabled; }
-void LightingManager::toggleAmbient()     { ambientEnabled = !ambientEnabled; }
-void LightingManager::toggleDiffuse()     { diffuseEnabled = !diffuseEnabled; }
-void LightingManager::toggleSpecular()    { specularEnabled = !specularEnabled; }
+void LightingManager::togglePositional() { positionalEnabled = !positionalEnabled; }
+void LightingManager::toggleAmbient() { ambientEnabled = !ambientEnabled; }
+void LightingManager::toggleDiffuse() { diffuseEnabled = !diffuseEnabled; }
+void LightingManager::toggleSpecular() { specularEnabled = !specularEnabled; }
 
 void LightingManager::translatePositionalLight(float dx, float dy, float dz) {
     positionalPos.x += dx;
     positionalPos.y += dy;
     positionalPos.z += dz;
 
-    if (positionalPos.y < 0.3f) positionalPos.y = 0.3f;
-    if (positionalPos.y > 6.0f) positionalPos.y = 6.0f;
+    if (positionalPos.y < 0.3f)
+        positionalPos.y = 0.3f;
+    if (positionalPos.y > 6.0f)
+        positionalPos.y = 6.0f;
 }
 
 void LightingManager::update(Vector3 cameraPos) {
@@ -170,23 +166,24 @@ void LightingManager::update(Vector3 cameraPos) {
 
     SetShaderValue(shader, uDirLightEnabledLoc, &dirVal, SHADER_UNIFORM_INT);
     SetShaderValue(shader, uPosLightEnabledLoc, &posVal, SHADER_UNIFORM_INT);
-    SetShaderValue(shader, uAmbientEnabledLoc,  &ambVal, SHADER_UNIFORM_INT);
-    SetShaderValue(shader, uDiffuseEnabledLoc,  &difVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uAmbientEnabledLoc, &ambVal, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, uDiffuseEnabledLoc, &difVal, SHADER_UNIFORM_INT);
     SetShaderValue(shader, uSpecularEnabledLoc, &speVal, SHADER_UNIFORM_INT);
 
     SetShaderValue(shader, uDirLightDirLoc, &directionalDir, SHADER_UNIFORM_VEC3);
-    SetShaderValue(shader, uPosLightPosLoc, &positionalPos,  SHADER_UNIFORM_VEC3);
-    SetShaderValue(shader, uViewPosLoc,     &cameraPos,      SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, uPosLightPosLoc, &positionalPos, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, uViewPosLoc, &cameraPos, SHADER_UNIFORM_VEC3);
 }
 
-void LightingManager::applyMaterial(const MaterialData& mat) {
-    SetShaderValue(shader, uMaterialAmbientLoc,   &mat.ambient,   SHADER_UNIFORM_VEC4);
-    SetShaderValue(shader, uMaterialSpecularLoc,  &mat.specular,  SHADER_UNIFORM_VEC4);
+void LightingManager::applyMaterial(const MaterialData &mat) {
+    SetShaderValue(shader, uMaterialAmbientLoc, &mat.ambient, SHADER_UNIFORM_VEC4);
+    SetShaderValue(shader, uMaterialSpecularLoc, &mat.specular, SHADER_UNIFORM_VEC4);
     SetShaderValue(shader, uMaterialShininessLoc, &mat.shininess, SHADER_UNIFORM_FLOAT);
 }
 
 void LightingManager::renderLightMarker(bool isSelected) {
-    if (!positionalEnabled) return;
+    if (!positionalEnabled)
+        return;
 
     // Lâmpada indicadora amarela brilhante
     DrawSphere(positionalPos, 0.22f, YELLOW);
