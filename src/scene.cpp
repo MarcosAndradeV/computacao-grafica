@@ -130,7 +130,7 @@ void Scene::renderRoom(bool enableAmbient, bool enableDiffuse, bool enableSpecul
             glEnd();
         }
     }
-
+#ifdef WALLS
     Materials::apply(Materials::Wall(), enableAmbient, enableDiffuse, enableSpecular);
 
     glNormal3f(0.0f, 0.0f, 1.0f);
@@ -156,7 +156,7 @@ void Scene::renderRoom(bool enableAmbient, bool enableDiffuse, bool enableSpecul
     glVertex3f(roomSize, wallHeight, roomSize);
     glVertex3f(roomSize, wallHeight, -roomSize);
     glEnd();
-
+#endif
     Materials::apply(Materials::WoodTrim(), enableAmbient, enableDiffuse, enableSpecular);
 
     glPushMatrix();
