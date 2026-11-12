@@ -5,41 +5,33 @@
 # ============================================================================
 
 CXX      = g++
-CXXFLAGS = -Wall -Wextra -O2 -std=c++17 -Isrc
+CXXFLAGS = -Wall -Wextra -O2 -std=c++17
 LIBS     = -lglut -lGLU -lGL -lm
 
-SRC_DIR   = src
-BUILD_DIR = build
-TARGET    = galeria_arte
+TARGET     = galeria_arte
+SINGLE_SRC = galeria_arte.cpp
 
-SRCS = $(SRC_DIR)/main.cpp \
-       $(SRC_DIR)/camera.cpp \
-       $(SRC_DIR)/lighting.cpp \
-       $(SRC_DIR)/object.cpp \
-       $(SRC_DIR)/scene.cpp \
-       $(SRC_DIR)/hud.cpp
-
-OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
-DEPS = $(SRC_DIR)/material.h \
-       $(SRC_DIR)/camera.h \
-       $(SRC_DIR)/lighting.h \
-       $(SRC_DIR)/object.h \
-       $(SRC_DIR)/scene.h \
-       $(SRC_DIR)/hud.h
-
+# Regra padrão: compilação do arquivo único concatenado para entrega
 all: $(TARGET)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS)
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
+$(TARGET): $(SINGLE_SRC)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LIBS)
 
 run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	rm -rf build $(TARGET)
 
-.PHONY: all run clean
+# Alvo opcional: compilação da versão modular (src/)
+modular:
+	@mkdir -p build
+	$(CXX) $(CXXFLAGS) -Isrc -c src/camera.cpp -o build/camera.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/lighting.cpp -o build/lighting.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/object.cpp -o build/object.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/scene.cpp -o build/scene.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/hud.cpp -o build/hud.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/main.cpp -o build/main.o
+	$(CXX) $(CXXFLAGS) -o $(TARGET) build/*.o $(LIBS)
+
+.PHONY: all run clean modular

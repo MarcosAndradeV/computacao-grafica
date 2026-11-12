@@ -34,9 +34,10 @@ O código foi projetado de forma modular, com separação clara de responsabilid
 
 ```text
 computacao-grafica/
+├── galeria_arte.cpp        # CÓDIGO FONTE CONCATENADO EM ARQUIVO ÚNICO (Para revisão/perguntas do professor)
 ├── Makefile                # Script de compilação automatizada
 ├── README.md               # Documentação resumida do projeto e manual de uso
-└── src/
+└── src/                    # Versão modular do projeto
     ├── main.cpp            # Ponto de entrada, inicialização FreeGLUT e despacho de callbacks
     ├── material.h          # Definições de materiais ópticos (Ouro, Rubi, Esmeralda, Cromo)
     ├── object.h / .cpp     # Classe ArtObject: geometria das obras e transformações 3D locais
@@ -128,9 +129,16 @@ sudo pacman -S base-devel freeglut glu
 ```
 
 ### Compilação
-Na raiz do projeto, execute:
+
+**1. Compilação direta do arquivo único (`galeria_arte.cpp`):**
 ```bash
-make
+g++ -Wall -Wextra -O2 -std=c++17 galeria_arte.cpp -lglut -lGLU -lGL -lm -o galeria_arte
+```
+
+**2. Compilação via Makefile:**
+```bash
+make          # Compila o arquivo único concatenado (galeria_arte.cpp)
+make modular  # Alternativa: compila a versão modular (src/)
 ```
 O executável binário `galeria_arte` será gerado automaticamente.
 

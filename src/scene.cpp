@@ -104,7 +104,6 @@ void Scene::renderPedestal(float posX, float posZ, bool enableAmbient, bool enab
 
 void Scene::renderRoom(bool enableAmbient, bool enableDiffuse, bool enableSpecular) {
     const float roomSize = 9.5f;
-    const float wallHeight = 5.5f;
     const int tiles = 18;
     const float step = (roomSize * 2.0f) / float(tiles);
 
@@ -131,6 +130,7 @@ void Scene::renderRoom(bool enableAmbient, bool enableDiffuse, bool enableSpecul
         }
     }
 #ifdef WALLS
+    const float wallHeight = 5.5f;
     Materials::apply(Materials::Wall(), enableAmbient, enableDiffuse, enableSpecular);
 
     glNormal3f(0.0f, 0.0f, 1.0f);
