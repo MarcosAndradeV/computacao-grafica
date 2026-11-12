@@ -7,7 +7,7 @@
  * Docente: Prof. José Humberto Góes Alves
  * Período: 2026.2
  *
- * Integrantes: Marcos Andrade, Tacio Moreira, David Gomes, Kaique Maia e Felipe Gama
+ * Integrantes: Marcos Andrade, Tacio Moreira, David Gomes, Kaique Maia
  *
  * Tecnologias: C++17, OpenGL, GLU, FreeGLUT
  *
